@@ -7,7 +7,7 @@
 
 #include <iostream>
 #include <ctime>
-#include "filemanip.h"
+//#include "filemanip.h"
 #include "BasicHeader.h"
 
 
@@ -46,22 +46,6 @@ inline char* nowtime(){
 #define BOOK main_log << YELLOW << "selected book_id=" <<( CHECKSTACK user_vector.back().selected_book)  << END << '\n'
 #define FLUSHLOG main_log << flush
 
-typedef char Input[300];
-typedef char TorD [50];
-struct Operation{
-    cUsername user_id;
-    Privilege authority;
-    cISBN selected_book;
-    Input input;
-    TorD op_time;
-    Operation() = default;
-    Operation(const char *_userId, Privilege authority, char *_selected_book, string _operation) : authority(authority)
-                                                                           {strcpy(user_id,_userId);
-                                                                               strcpy(input, _operation.c_str());
-                                                                               strcpy(selected_book, _selected_book);
-                                                                               strcpy(op_time, nowtime());
-    }
-};
 #define OInfo {operation_log.seekp(0,ios::end); \
 fwrite(operation_log, Operation(user_vector.back().username, user_vector.back().privilege, "", input)); \
 }

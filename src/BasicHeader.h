@@ -88,7 +88,10 @@ public:
 };
 
 struct HourMinute {
-
+    int hour = 0;
+    int minute = 0;
+    HourMinute(){}
+    HourMinute(string str) : hour((str[0]-'0')*10+str[1]-'0'), minute((str[3]-'0')*10+str[4]-'0'){}
 };
 struct MonthDate {
     int month = 6;
@@ -105,9 +108,14 @@ struct MonthDate {
         date += 1;
         return *this;
     }
-    operator int(){
+    operator int() {
         testvaild();
-
+        int ans = date;
+        int i = month;
+        if (i == 9) {ans += 31; --i;}
+        if (i == 8) {ans += 31; --i;}
+        if (i == 7) {ans += 30; --i;}
+        return ans;
     }
 };
 
@@ -130,15 +138,15 @@ struct User {
 };
 
 typedef cStringType<22> TrainID;
-typedef int StationNum;
-typedef cStringType<44> Station;
-typedef int SeatNum;
+typedef int StationNum,SeatNum,TicketNum,OrderNum;
+typedef int TravelTime,StopoverTime;
 typedef int Price;
+typedef cStringType<44> Station;
 typedef HourMinute StartTime;
-typedef int TravelTime;
-typedef int StopoverTime;
 typedef MonthDate SaleDate;
-typedef char Type;
+typedef cStringType<2> Type;
+typedef cStringType<10> TwoChoice;
+typedef string Stations,Prices,TravelTimes,StopoverTimes,SaleDates;
 
 struct Train {
     static constexpr int stationNumMax = 101;
