@@ -8,14 +8,12 @@
 #include "logger.h"
 #include "vector.hpp"
 
-using namespace std;
 
 void initialize();
 
 void function_chooser();
 
-class ErrorOccur {
-};
+
 
 
 namespace user {
@@ -74,12 +72,12 @@ int main() {
             function_chooser();
         }
         catch (ErrorOccur) {
-            cout << "-1" << endl;
+            std::cout << "-1" << std::endl;
         }
     }
 }
 
-string input;
+std::string input;
 
 void initialize() {
 
@@ -87,11 +85,11 @@ void initialize() {
 
 void function_chooser() {
     smatch parameter;
-    auto pluralStrMaker = [](const string &str) -> const string {
-        const string strNoSpace = str.substr(1);
+    auto pluralStrMaker = [](const std::string &str) -> const std::string {
+        const std::string strNoSpace = str.substr(1);
         return " (" + strNoSpace + "(?:\\|" + strNoSpace + ")*)";
     };
-    static const string
+    static const std::string
             chinese = "\\S",
 //            chinese = "\\w/*[\u4e00-\u9fa5]*/",
     username = " ([a-zA-z]\\w{1,19})", _c = " -c" + username, _u = " -u" + username,
@@ -99,7 +97,7 @@ void function_chooser() {
             name = " (" + chinese + "{2,5})", _nu = " -n" + name,
             mailAddr = " ([0-9a-zA-Z\\@\\.]{1,30})", _mu = " -m" + mailAddr,
             privilege = " (10|0-9)", _g = " -g" + privilege;
-    static const string
+    static const std::string
             trainID = username, _i = " -i" + trainID,
             stationNum = " (100|[1-9][0-9]|[2-9])", _n = " -n" + stationNum, _num = " -n (\\%d+)",
             station = " (" + chinese + "{1,10})", _startPlace = " -s" + station,
@@ -121,18 +119,18 @@ void function_chooser() {
     if (input == "") return;
     Info("try to " + input);
 
-    static auto match = [&parameter](const string &str) -> bool {
+    static auto match = [&parameter](const std::string &str) -> bool {
         return regex_search(input, parameter, regex("^" + str));
     };
-    static auto hasparm = [&parameter](const string &str) -> bool {
+    static auto hasparm = [&parameter](const std::string &str) -> bool {
         return regex_search(input, parameter, regex(str));
     };
-    static auto pm = [&parameter](const string &str) -> string {
+    static auto pm = [&parameter](const std::string &str) -> std::string {
         if (hasparm(str))
             return parameter.str(1);
-        return string();
+        return std::string();
     };
-    static auto pmint = [&parameter](const string &str) -> int {
+    static auto pmint = [&parameter](const std::string &str) -> int {
         if (hasparm(str)) return stoi(parameter.str(1));
         return -1;
     };
@@ -171,52 +169,64 @@ void user::add_user(Username cur_username, Username username, Password password,
     ckint(privilege);
     loginUsers.getPrivilege(cur_username);
     existUsers.addUser(User(username,privilege, name, mailAddr, password));
+    Return(0);
+    Success();
 }
 
 void user::login(Username username, Password password) {
     cks(2, username, password);
     if(loginUsers.isUserExist(username))Error("USER HAS ALREADY LOGIN");
-
-    Success;
+    auto CurUserPair = existUsers.getUser(username);
+    if(!CurUserPair.second) Error("USER DOES NOT EXIST");
+    User& foundUser = CurUserPair.first;
+    if (foundUser.password != password) Error("WRONG PASSWORD");
+    loginUsers.loginUser(foundUser);
+    Return(0);
+    Success();
 }
 
 void user::logout(Username username) {
     ck(username);
-    AssureLogin(username);
-
-    loginUsers.logoutUser(username);
-    Success;
+    if(loginUsers.logoutUser(username))Error("USER DOES NOT LOGIN");
+    Return(0);
+    Success();
 }
 
 
 void user::query_profile(Username cur_username, Username username) {
     cks(2, cur_username, username);
-    AssureLogin(username);
-
-    Success;
+    auto CurUserPair = loginUsers.getUser(cur_username);
+    if(!CurUserPair.second) Error("CURRENT USER DOES NOT LOGIN");
+    auto UserPair = existUsers.getUser(username);
+    if(!UserPair.second) Error("FINDING USER DOES NOT EXIST");
+    User& foundUser = UserPair.first;
+    CoreUser &curUser = CurUserPair.first;
+    if(!(curUser.privilege > foundUser.privilege || curUser.username == foundUser.username)) Error("NO PRIVILEGE TO QUERY_PROFILE");
+    Return(string(foundUser.username)+' '+string(foundUser.name)+' '+string(foundUser.mailAddr) + ' ' + string(foundUser.privilege));
+    Success();
 }
 
 void user::modify_profile(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr, Privilege privilege) {
     cks(2, cur_username, username);
     AssureLogin(cur_username);
-    Success;
+    Success();
 }
 
 template<class T>
-sjtu::vector<T> words_spliter(const string &_keyword) {
+sjtu::vector<T> words_spliter(const std::string &_keyword) {
     sjtu::vector<T> ret;
-    stringstream ss(_keyword);
-    string oneword;
+    std::stringstream ss(_keyword);
+    std::string oneword;
     while (getline(ss, oneword, '|')) {
         ret.push_back(oneword);
     }
     return ret;
 }
 
-sjtu::vector<int> ints_spliter(const string &_keyword) {
+sjtu::vector<int> ints_spliter(const std::string &_keyword) {
     sjtu::vector<int> ret;
-    stringstream ss(_keyword);
-    string oneword;
+    std::stringstream ss(_keyword);
+    std::string oneword;
     while (getline(ss, oneword, '|')) {
         ret.push_back(stoi(oneword));
     }
@@ -236,36 +246,36 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
     sjtu::vector<Price> price_s = ints_spliter(prices);
     sjtu::vector<SaleDate> saleDate_s = words_spliter<SaleDate>(saleDates);
 
-    Success;
+    Success();
 }
 
 void train::release_train(TrainID trainID) {
     ck(trainID);
-    Success;
+    Success();
 }
 
 void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     cks(2, trainID, startingMonthDate);
 
-    Success;
+    Success();
 }
 
 void train::delete_train(TrainID trainID) {
     ck(trainID);
-    Success;
+    Success();
 
 }
 
 void train::query_ticket(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation, TwoChoice sortFromLowerToHigherBy) {
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
-    Success;
+    Success();
 }
 
 void train::query_transfer(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation, TwoChoice sortFromLowerToHigherBy) {
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
-    Success;
+    Success();
 }
 
 void train::buy_ticket(Username username, TrainID trainId, MonthDate monthDate, TicketNum buyTicketNum, Station fromStation, Station toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
@@ -273,14 +283,14 @@ void train::buy_ticket(Username username, TrainID trainId, MonthDate monthDate, 
     ckint(buyTicketNum);
     AssureLogin(username);
 
-    Success;
+    Success();
 }
 
 void train::query_order(Username username) {
     ck(username);
     AssureLogin(username);
 
-    Success;
+    Success();
 }
 
 void train::refund_ticket(Username username, OrderNumth orderNumth) {
@@ -288,27 +298,26 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ckint(orderNumth);
     AssureLogin(username);
 
-    Success;
+    Success();
 }
 
 void sys::log() {
     FLUSHLOG;
-    ifstream fin("log.dat");
-    string s;
+    std::ifstream fin("log.dat");
+    std::string s;
     while (!fin.eof()) {
         getline(fin, s);
-        cout << s << endl;
+        std::cout << s << std::endl;
     }
     fin.close();
-    Success;
 }
 
 void sys::clean() {
-    Success;
+
 }
 
 void sys::exit() {
-    cout << "bye" << endl;
+    std::cout << "bye" << std::endl;
     std::exit(0);
 }
 

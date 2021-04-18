@@ -17,7 +17,6 @@
 #include <sstream>
 #include <utility>
 
-using namespace std;
 
 template<int N>
 class cStringType {
@@ -34,7 +33,7 @@ public:
         }
     }
 
-    cStringType(const string &_c) {
+    cStringType(const std::string &_c) {
         sz = _c.size();
         for (size_t i = 0; i < sz; ++i) {
             c[i] = _c[i];
@@ -49,7 +48,7 @@ public:
         }
     }
 
-    operator string() const {
+    operator std::string() const {
         return c;
     }
 
@@ -62,7 +61,7 @@ public:
     }
 
     bool operator==(const cStringType &rhs) const {
-        return string(c) == string(rhs.c);
+        return std::string(c) == std::string(rhs.c);
     }
 
     bool operator!=(const cStringType &rhs) const {
@@ -70,7 +69,7 @@ public:
     }
 
     bool operator<(const cStringType &rhs) const {
-        return string(c) < string(rhs.c);
+        return std::string(c) < std::string(rhs.c);
     }
 
     bool operator>(const cStringType &rhs) const {
@@ -95,11 +94,11 @@ struct HourMinute {
     int hour = -1;
     int minute = -1;
     HourMinute(){}
-    HourMinute(string str) : hour((str[0]-'0')*10+str[1]-'0'), minute((str[3]-'0')*10+str[4]-'0'){}
+    HourMinute(std::string str) : hour((str[0]-'0')*10+str[1]-'0'), minute((str[3]-'0')*10+str[4]-'0'){}
 
-    operator string() const{
-        if (hour == -1) return string();
-        string str;
+    operator std::string() const{
+        if (hour == -1) return std::string();
+        std::string str;
         if(hour<10)str+='0';
         str+=('0'+hour);
         str += ':';
@@ -117,7 +116,7 @@ struct MonthDate {
     int date = 0;
     void testvaild()const{assert(month < 6 || month > 8 || date < 0 || date > 31);}
     MonthDate(int month, int date) : month(month), date(date) {testvaild();}
-    MonthDate(string str) : month(str[1] - '0'), date((str[3]-'0')*10+str[4]-'0') {}
+    MonthDate(std::string str) : month(str[1] - '0'), date((str[3]-'0')*10+str[4]-'0') {}
     MonthDate& operator++(){
         testvaild();
         if((date == 30 && month == 6) || (date == 31 && (month == 7 || month == 8))){
@@ -137,9 +136,9 @@ struct MonthDate {
         return ans;
     }
 
-    operator string() const{
-        if (month == 0) return string();
-        string str;
+    operator std::string() const{
+        if (month == 0) return std::string();
+        std::string str;
         str+='0';
         str+=('0'+month);
         str += '-';
@@ -148,7 +147,7 @@ struct MonthDate {
     }
 
     friend ostream &operator<<(ostream &os, const MonthDate &date) {
-        os << string(date);
+        os << std::string(date);
         return os;
     }
 };
@@ -168,20 +167,15 @@ struct CoreUser{
     CoreUser() = default;
     CoreUser(const Username &username, Privilege privilege): username(username), privilege(privilege) {}
 };
-struct User{
-    Username username;
-    Privilege privilege;
+struct User : CoreUser{
     Name name;
     MailAddr mailAddr;
     Password password;
-    bool operator<(const CoreUser &rhs) const {
-        return username < rhs.username;
-    }
-
     User() = default;
     User(const Username &username, Privilege privilege, const Name &name, const MailAddr &mailAddr,
-         const Password &password) : username(username), privilege(privilege), name(name), mailAddr(mailAddr),
+         const Password &password) : CoreUser(username, privilege), name(name), mailAddr(mailAddr),
                                      password(password) {}
+
 };
 //这是已登录用户对用户操作时已登录用户只需要知道的数据
 //如何保证修改的同步性？用哈希吗？
@@ -202,7 +196,7 @@ typedef HourMinute StartTime;
 typedef MonthDate SaleDate;
 typedef cStringType<2> Type;
 typedef cStringType<10> TwoChoice;
-typedef string Stations,Prices,TravelTimes,StopoverTimes,SaleDates;
+typedef std::string Stations,Prices,TravelTimes,StopoverTimes,SaleDates;
 
 struct Train {
     static constexpr int STATIONNUMMAX = 101;
@@ -222,7 +216,7 @@ struct Train {
 struct ExistUsers{
     void addUser(User user){}
     void deleteUser(Username username){}
-    User getUser(Username username){}
+    std::pair<User,bool> getUser(Username username){}
     bool isUserExist(Username username){}
     void changeInfo(Username username, User user){}
     bool empty();
@@ -235,8 +229,8 @@ private:
 
 struct LoginUsers{//(这些或许可用指针，移动快？）
     void loginUser(CoreUser user){}
-    void logoutUser(Username username){}
-    CoreUser getUser(Username username){}
+    bool logoutUser(Username username){}
+    std::pair<CoreUser, bool> getUser(Username username){}
     Privilege getPrivilege(Username username){}
     bool isUserExist(Username username){}
     void changePrivilege(Username username, CoreUser user){}
