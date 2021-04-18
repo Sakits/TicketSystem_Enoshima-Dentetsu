@@ -7,7 +7,6 @@
 #include <sstream>
 #include "logger.h"
 #include "vector.hpp"
-#include "littletools.h"
 
 using namespace std;
 
@@ -18,9 +17,6 @@ void function_chooser();
 class ErrorOccur {
 };
 
-ofstream main_log("log.dat", ios::app);
-ofstream finance_log("financelog.dat", ios::app);
-ofstream operation_log("operation.dat", ios::app | ios::binary);
 
 namespace user {
 
@@ -78,7 +74,7 @@ int main() {
             function_chooser();
         }
         catch (ErrorOccur) {
-            cout << "Invalid" << endl;
+            cout << "-1" << endl;
         }
     }
 }
@@ -167,38 +163,43 @@ void function_chooser() {
     trymatch("exit", sys::exit())
 #undef trymatch
     Error("SYNTAX ERROR");
-    throw ErrorOccur();
 }
 
 void user::add_user(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr,
                     Privilege privilege) {
-    cks(6, cur_username, username, password, name, mailAddr, privilege);
+    cks(5, cur_username, username, password, name, mailAddr);
+    ckint(privilege);
+    loginUsers.getPrivilege(cur_username);
+    existUsers.addUser(User(username,privilege, name, mailAddr, password));
 }
 
 void user::login(Username username, Password password) {
     cks(2, username, password);
-    Success;
+    if(loginUsers.isUserExist(username))Error("USER HAS ALREADY LOGIN");
 
+    Success;
 }
 
 void user::logout(Username username) {
     ck(username);
+    AssureLogin(username);
 
+    loginUsers.logoutUser(username);
     Success;
-
 }
 
 
 void user::query_profile(Username cur_username, Username username) {
     cks(2, cur_username, username);
-    Success;
+    AssureLogin(username);
 
+    Success;
 }
 
 void user::modify_profile(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr, Privilege privilege) {
-    cks(6, cur_username, username, password, name, mailAddr, privilege);
+    cks(2, cur_username, username);
+    AssureLogin(cur_username);
     Success;
-
 }
 
 template<class T>
@@ -225,28 +226,28 @@ sjtu::vector<int> ints_spliter(const string &_keyword) {
 void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, Stations stations, Prices prices,
                       StartTime startTime, TravelTimes travelTimes, StopoverTimes stopoverTimes, SaleDates saleDates,
                       Type type) {
-    cks(10,trainID, stationNum,seatNum, stations,prices,
+    cks(8,trainID, stations,prices,
         startTime, travelTimes,stopoverTimes, saleDates,
         type);
+    ckints(2,stationNum,seatNum);
     sjtu::vector<Station> station_s = words_spliter<Station>(stations);
     sjtu::vector<TravelTime> travelTime_s = ints_spliter(travelTimes);
     sjtu::vector<StopoverTime> stopoverTime_s = ints_spliter(stopoverTimes);
     sjtu::vector<Price> price_s = ints_spliter(prices);
     sjtu::vector<SaleDate> saleDate_s = words_spliter<SaleDate>(saleDates);
-    Success;
 
+    Success;
 }
 
 void train::release_train(TrainID trainID) {
     ck(trainID);
     Success;
-
 }
 
 void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     cks(2, trainID, startingMonthDate);
-    Success;
 
+    Success;
 }
 
 void train::delete_train(TrainID trainID) {
@@ -256,27 +257,37 @@ void train::delete_train(TrainID trainID) {
 }
 
 void train::query_ticket(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation, TwoChoice sortFromLowerToHigherBy) {
-    cks(4, fromStation, toStation, monthDateWhenStartFromfromStation, sortFromLowerToHigherBy);
+    cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
     Success;
 }
 
 void train::query_transfer(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation, TwoChoice sortFromLowerToHigherBy) {
-    cks(4, fromStation, toStation, monthDateWhenStartFromfromStation, sortFromLowerToHigherBy);
+    cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
     Success;
 }
 
 void train::buy_ticket(Username username, TrainID trainId, MonthDate monthDate, TicketNum buyTicketNum, Station fromStation, Station toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
-    Success;
+    cks(5,username, trainId, monthDate, fromStation, toStation);
+    ckint(buyTicketNum);
+    AssureLogin(username);
 
+    Success;
 }
 
-void train::query_order(Username) {
+void train::query_order(Username username) {
+    ck(username);
+    AssureLogin(username);
+
     Success;
 }
 
-void train::refund_ticket(Username, OrderNumth orderNumth) {
+void train::refund_ticket(Username username, OrderNumth orderNumth) {
+    ck(username);
+    ckint(orderNumth);
+    AssureLogin(username);
+
     Success;
 }
 
@@ -293,7 +304,7 @@ void sys::log() {
 }
 
 void sys::clean() {
-
+    Success;
 }
 
 void sys::exit() {

@@ -106,7 +106,7 @@ namespace sjtu {
                 return *(vec->a[pos]);
             }
             /**
-             * a operator to check whether two iterators are same (pointing to the same memory address).
+             * a operator to check1 whether two iterators are same (pointing to the same memory address).
              */
             bool operator==(const iterator &rhs) const {
                 return rhs.vec == vec && rhs.pos == pos;
@@ -196,7 +196,7 @@ namespace sjtu {
                 return *(vec->a[pos]);
             }
             /**
-             * a operator to check whether two iterators are same (pointing to the same memory address).
+             * a operator to check1 whether two iterators are same (pointing to the same memory address).
              */
             bool operator==(const iterator &rhs) const {
                 return rhs.vec == vec && rhs.pos == pos;
@@ -272,7 +272,7 @@ namespace sjtu {
          * assigns specified element with bounds checking
          * throw index_out_of_bound if pos is not in [0, space)
          * !!! Pay attentions
-         *   In STL this operator does not check the boundary but I want you to do.
+         *   In STL this operator does not check1 the boundary but I want you to do.
          */
         T & operator[](const size_t &pos) {
             if (pos < 0 || pos >= num)

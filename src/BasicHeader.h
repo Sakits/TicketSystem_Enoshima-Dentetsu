@@ -53,6 +53,10 @@ public:
         return c;
     }
 
+    operator bool() const {
+        return c == "";
+    }
+
     size_t size() const {
         return sz;
     }
@@ -88,10 +92,20 @@ public:
 };
 
 struct HourMinute {
-    int hour = 0;
-    int minute = 0;
+    int hour = -1;
+    int minute = -1;
     HourMinute(){}
     HourMinute(string str) : hour((str[0]-'0')*10+str[1]-'0'), minute((str[3]-'0')*10+str[4]-'0'){}
+
+    operator string() const{
+        if (hour == -1) return string();
+        string str;
+        if(hour<10)str+='0';
+        str+=('0'+hour);
+        str += ':';
+        if(minute<10) str+='0';
+        str+=('0'+minute);
+    }
 
     friend ostream &operator<<(ostream &os, const HourMinute &hourMinute) {
         os << ((hourMinute.hour < 10) ? "0" : "") << hourMinute.hour << ":" << ((hourMinute.minute < 10) ? "0" : "") << hourMinute.minute;
@@ -99,9 +113,9 @@ struct HourMinute {
     }
 };
 struct MonthDate {
-    int month = 6;
-    int date = 1;
-    void testvaild(){assert(month < 6 || month > 8 || date < 0 || date > 31);}
+    int month = 0;
+    int date = 0;
+    void testvaild()const{assert(month < 6 || month > 8 || date < 0 || date > 31);}
     MonthDate(int month, int date) : month(month), date(date) {testvaild();}
     MonthDate(string str) : month(str[1] - '0'), date((str[3]-'0')*10+str[4]-'0') {}
     MonthDate& operator++(){
@@ -113,7 +127,7 @@ struct MonthDate {
         date += 1;
         return *this;
     }
-    operator int() {
+    operator int() const{
         testvaild();
         int ans = date;
         int i = month;
@@ -121,6 +135,21 @@ struct MonthDate {
         if (i == 8) {ans += 31; --i;}
         if (i == 7) {ans += 30; --i;}
         return ans;
+    }
+
+    operator string() const{
+        if (month == 0) return string();
+        string str;
+        str+='0';
+        str+=('0'+month);
+        str += '-';
+        if(date<10) str+='0';
+        str+=('0'+date);
+    }
+
+    friend ostream &operator<<(ostream &os, const MonthDate &date) {
+        os << string(date);
+        return os;
     }
 };
 
@@ -130,16 +159,29 @@ typedef cStringType<25> Name;
 typedef cStringType<33> MailAddr;
 typedef int Privilege;
 
-struct User {
+struct CoreUser{
+    Username username;
+    Privilege privilege;
+    bool operator<(const CoreUser &rhs) const {
+        return username < rhs.username;
+    }
+    CoreUser() = default;
+    CoreUser(const Username &username, Privilege privilege): username(username), privilege(privilege) {}
+};
+struct User{
     Username username;
     Privilege privilege;
     Name name;
     MailAddr mailAddr;
     Password password;
-
-    bool operator<(const User &rhs) const {
+    bool operator<(const CoreUser &rhs) const {
         return username < rhs.username;
     }
+
+    User() = default;
+    User(const Username &username, Privilege privilege, const Name &name, const MailAddr &mailAddr,
+         const Password &password) : username(username), privilege(privilege), name(name), mailAddr(mailAddr),
+                                     password(password) {}
 };
 //这是已登录用户对用户操作时已登录用户只需要知道的数据
 //如何保证修改的同步性？用哈希吗？
@@ -176,21 +218,41 @@ struct Train {
     Type type;
 };
 
-/*struct LoginUsers{//(这些或许可用指针，移动快？）
-    adduser
-    deleteuser
-    finduser
+//template<typename T>
+struct ExistUsers{
+    void addUser(User user){}
+    void deleteUser(Username username){}
+    User getUser(Username username){}
+    bool isUserExist(Username username){}
+    void changeInfo(Username username, User user){}
+    bool empty();
+    bool firstUser();
+private:
+//    BPlustree<Username, T> tree;
+}existUsers;
+//ExistUsers ;
+//ExistUsers<CoreUser> loginUsers;
+
+struct LoginUsers{//(这些或许可用指针，移动快？）
+    void loginUser(CoreUser user){}
+    void logoutUser(Username username){}
+    CoreUser getUser(Username username){}
+    Privilege getPrivilege(Username username){}
+    bool isUserExist(Username username){}
+    void changePrivilege(Username username, CoreUser user){}
+    bool empty();
 }loginUsers;
 
 struct NotOnSaleTrains{
-    addtrain
-    deleteTrain
+//    addtrain
+//            querytrain
+//    deleteTrain
 }notOnSaleTrains;
 
 struct OnSaleTrains{
-    saleticket
-    querytrain
+//    saleticket
+//    querytrain
 }onSaleTrains;
 
-    releaseTrain*/
+//    releaseTrain
 #endif //TRAINTICKET_BASICHEADER_H
