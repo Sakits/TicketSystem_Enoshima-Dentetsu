@@ -321,7 +321,7 @@ namespace sjtu {
             return const_iterator(this, num);
         }
         /**
-         * checks whether the container is empty
+         * cks whether the container is empty
          */
         bool empty() const {
             return !num;

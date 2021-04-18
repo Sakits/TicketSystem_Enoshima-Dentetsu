@@ -92,6 +92,11 @@ struct HourMinute {
     int minute = 0;
     HourMinute(){}
     HourMinute(string str) : hour((str[0]-'0')*10+str[1]-'0'), minute((str[3]-'0')*10+str[4]-'0'){}
+
+    friend ostream &operator<<(ostream &os, const HourMinute &hourMinute) {
+        os << ((hourMinute.hour < 10) ? "0" : "") << hourMinute.hour << ":" << ((hourMinute.minute < 10) ? "0" : "") << hourMinute.minute;
+        return os;
+    }
 };
 struct MonthDate {
     int month = 6;
@@ -127,18 +132,27 @@ typedef int Privilege;
 
 struct User {
     Username username;
-    Password password;
+    Privilege privilege;
     Name name;
     MailAddr mailAddr;
-    Privilege privilege;
+    Password password;
 
     bool operator<(const User &rhs) const {
         return username < rhs.username;
     }
 };
+//这是已登录用户对用户操作时已登录用户只需要知道的数据
+//如何保证修改的同步性？用哈希吗？
+//比如修改了权限，那么不仅用户信息中的权限需要修改，已经登录用户的权限也需要修改。
+//要能快速查找
+//Username username;
+//Privilege privilege;
+
+//Name name;
+//MailAddr mailAddr;
 
 typedef cStringType<22> TrainID;
-typedef int StationNum,SeatNum,TicketNum,OrderNum;
+typedef int StationNum,SeatNum,TicketNum,OrderNumth;
 typedef int TravelTime,StopoverTime;
 typedef int Price;
 typedef cStringType<44> Station;
@@ -149,18 +163,34 @@ typedef cStringType<10> TwoChoice;
 typedef string Stations,Prices,TravelTimes,StopoverTimes,SaleDates;
 
 struct Train {
-    static constexpr int stationNumMax = 101;
+    static constexpr int STATIONNUMMAX = 101;
     TrainID trainId;
     StationNum stationNum;
-    Station stations[stationNumMax];//这里可以用表示替代，注意！
+    Station stations[STATIONNUMMAX];//这里可以用表示替代，注意！
     SeatNum seatNum;
-    Price prices[stationNumMax];
+    Price prices[STATIONNUMMAX];
     StartTime startTime;
-    TravelTime travelTimes[stationNumMax];
-    StopoverTime stopoverTimes[stationNumMax];
+    TravelTime travelTimes[STATIONNUMMAX];
+    StopoverTime stopoverTimes[STATIONNUMMAX];
     SaleDate saleDate;
     Type type;
 };
 
+/*struct LoginUsers{//(这些或许可用指针，移动快？）
+    adduser
+    deleteuser
+    finduser
+}loginUsers;
 
+struct NotOnSaleTrains{
+    addtrain
+    deleteTrain
+}notOnSaleTrains;
+
+struct OnSaleTrains{
+    saleticket
+    querytrain
+}onSaleTrains;
+
+    releaseTrain*/
 #endif //TRAINTICKET_BASICHEADER_H

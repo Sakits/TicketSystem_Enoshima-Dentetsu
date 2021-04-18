@@ -7,6 +7,7 @@
 #include <sstream>
 #include "logger.h"
 #include "vector.hpp"
+#include "littletools.h"
 
 using namespace std;
 
@@ -37,7 +38,8 @@ namespace user {
 
 namespace train {
 
-    void add_train(TrainID, StationNum, SeatNum, Stations, Prices, StartTime, TravelTimes, StopoverTimes, SaleDates, Type);
+    void
+    add_train(TrainID, StationNum, SeatNum, Stations, Prices, StartTime, TravelTimes, StopoverTimes, SaleDates, Type);
 
     void release_train(TrainID);
 
@@ -53,7 +55,7 @@ namespace train {
 
     void query_order(Username);
 
-    void refund_ticket(Username, OrderNum);
+    void refund_ticket(Username, OrderNumth);
 }
 
 namespace sys {
@@ -64,25 +66,7 @@ namespace sys {
     void exit();
 }
 
-#define check(x,y) {cout << ' ' << #x << "=" << y;};
-template<class A, class B>
-void printall(A x, B y) {
-    check(x,y)
-}
-template<class A, class B, class... Args>
-void printall(A x, B y, const Args&... rest) {
-    check(x,y)
-    printAll(rest...);
-}
 
-//void checkpm(const string& _keyword){
-//    stringstream ss(_keyword);
-//    string oneword;
-//    while (getline(ss, oneword, ' ')) {
-//        cout <<
-//    }
-//    cout << endl;
-//}
 
 int main() {
 #ifdef FileIO
@@ -112,17 +96,17 @@ void function_chooser() {
         return " (" + strNoSpace + "(?:\\|" + strNoSpace + ")*)";
     };
     static const string
-            chinese = "\\w",
+            chinese = "\\S",
 //            chinese = "\\w/*[\u4e00-\u9fa5]*/",
-            username = " ([a-zA-z]\\w{1,19})", _c = " -c" + username, _u = " -u" + username,
+    username = " ([a-zA-z]\\w{1,19})", _c = " -c" + username, _u = " -u" + username,
             passwd = " (\\w{6,30})", _pu = " -p" + passwd,
-            name = " ("+ chinese +"{2,5})", _nu = " -n" + name,
+            name = " (" + chinese + "{2,5})", _nu = " -n" + name,
             mailAddr = " ([0-9a-zA-Z\\@\\.]{1,30})", _mu = " -m" + mailAddr,
             privilege = " (10|0-9)", _g = " -g" + privilege;
     static const string
             trainID = username, _i = " -i" + trainID,
             stationNum = " (100|[1-9][0-9]|[2-9])", _n = " -n" + stationNum, _num = " -n (\\%d+)",
-            station = " ("+chinese+"{1,10})", _startPlace = " -s" + station,
+            station = " (" + chinese + "{1,10})", _startPlace = " -s" + station,
             _fromPlace = " -f" + station, _toPlace = " -t" + station, _ss = " -s" + pluralStrMaker(station),
             seatNum = " (100000|[1-9]\\d{0,4}|0)", _m = " -m" + seatNum,
             price = seatNum, _p = " -p" + price, _pt = " -p (time|cost)", _qt = " -q (false|true)",
@@ -148,11 +132,8 @@ void function_chooser() {
         return regex_search(input, parameter, regex(str));
     };
     static auto pm = [&parameter](const string &str) -> string {
-        if (hasparm(str)) {
-//            auto debug = hasparm(str);
-//            auto debug2 = parameter.str(1);
+        if (hasparm(str))
             return parameter.str(1);
-        }
         return string();
     };
     static auto pmint = [&parameter](const string &str) -> int {
@@ -189,24 +170,34 @@ void function_chooser() {
     throw ErrorOccur();
 }
 
-void user::add_user(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr, Privilege privilege) {
-    cout << "Username=" << cur_username << " Username=" << username << " Password=" << password << " Name=" << name << " MailAddr=" << mailAddr << " Privilege" << privilege<<endl;
+void user::add_user(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr,
+                    Privilege privilege) {
+    cks(6, cur_username, username, password, name, mailAddr, privilege);
 }
 
 void user::login(Username username, Password password) {
-    printf("Username=%d Password=%d\n",username,password);
+    cks(2, username, password);
+    Success;
+
 }
 
 void user::logout(Username username) {
+    ck(username);
+
+    Success;
 
 }
 
 
 void user::query_profile(Username cur_username, Username username) {
-    cout << "Username=" << cur_username << " Username=" << username << endl;
+    cks(2, cur_username, username);
+    Success;
+
 }
 
-void user::modify_profile(Username, Username, Password, Name, MailAddr, Privilege) {
+void user::modify_profile(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr, Privilege privilege) {
+    cks(6, cur_username, username, password, name, mailAddr, privilege);
+    Success;
 
 }
 
@@ -231,47 +222,62 @@ sjtu::vector<int> ints_spliter(const string &_keyword) {
     return ret;
 }
 
-void train::add_train(TrainID trainId, StationNum stationNum, SeatNum seatNum, Stations stations, Prices prices,
+void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, Stations stations, Prices prices,
                       StartTime startTime, TravelTimes travelTimes, StopoverTimes stopoverTimes, SaleDates saleDates,
                       Type type) {
+    cks(10,trainID, stationNum,seatNum, stations,prices,
+        startTime, travelTimes,stopoverTimes, saleDates,
+        type);
     sjtu::vector<Station> station_s = words_spliter<Station>(stations);
     sjtu::vector<TravelTime> travelTime_s = ints_spliter(travelTimes);
     sjtu::vector<StopoverTime> stopoverTime_s = ints_spliter(stopoverTimes);
     sjtu::vector<Price> price_s = ints_spliter(prices);
     sjtu::vector<SaleDate> saleDate_s = words_spliter<SaleDate>(saleDates);
+    Success;
 
 }
 
-void train::release_train(TrainID trainId) {
+void train::release_train(TrainID trainID) {
+    ck(trainID);
+    Success;
 
 }
 
-void train::query_train(TrainID, MonthDate) {
+void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
+    cks(2, trainID, startingMonthDate);
+    Success;
 
 }
 
-void train::delete_train(TrainID) {
+void train::delete_train(TrainID trainID) {
+    ck(trainID);
+    Success;
 
 }
 
-void train::query_ticket(Station, Station, MonthDate, TwoChoice) {
+void train::query_ticket(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation, TwoChoice sortFromLowerToHigherBy) {
+    cks(4, fromStation, toStation, monthDateWhenStartFromfromStation, sortFromLowerToHigherBy);
 
+    Success;
 }
 
-void train::query_transfer(Station, Station, MonthDate, TwoChoice) {
+void train::query_transfer(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation, TwoChoice sortFromLowerToHigherBy) {
+    cks(4, fromStation, toStation, monthDateWhenStartFromfromStation, sortFromLowerToHigherBy);
 
+    Success;
 }
 
-void train::buy_ticket(Username, TrainID, MonthDate, TicketNum, Station, Station, TwoChoice) {
+void train::buy_ticket(Username username, TrainID trainId, MonthDate monthDate, TicketNum buyTicketNum, Station fromStation, Station toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
+    Success;
 
 }
 
 void train::query_order(Username) {
-
+    Success;
 }
 
-void train::refund_ticket(Username, OrderNum) {
-
+void train::refund_ticket(Username, OrderNumth orderNumth) {
+    Success;
 }
 
 void sys::log() {
