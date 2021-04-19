@@ -87,7 +87,7 @@ void function_chooser() {
         return " (" + strNoSpace + "(?:\\|" + strNoSpace + ")*)";
     };
     static const std::string
-            chinese = "\\S",
+            chinese = "\\S{3}",
 //            chinese = "\\w/*[\u4e00-\u9fa5]*/",
     username = " ([a-zA-z]\\w{1,19})", _c = " -c" + username, _u = " -u" + username,
             passwd = " (\\w{6,30})", _pu = " -p" + passwd,
