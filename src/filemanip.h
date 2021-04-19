@@ -24,6 +24,15 @@ inline void fcreate(FileName fn){//OK to not to use ios::binary
     fooo.close();
 }
 
+inline void fclear(FileName fn){
+    ofstream fileout(fn,ios::trunc);
+    if(!fileout){
+        cout << "Create file failure...\n";
+        exit(0);
+    }
+    fileout.close();
+}
+
 #define openfile file.open(fileName, ios::in | ios::out | ios::binary);assert(file);
 
 #define closefile file.close();

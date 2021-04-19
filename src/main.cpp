@@ -14,8 +14,6 @@ void initialize();
 void function_chooser();
 
 
-
-
 namespace user {
 
     void login(Username, Password);
@@ -59,7 +57,6 @@ namespace sys {
 
     void exit();
 }
-
 
 
 int main() {
@@ -165,29 +162,36 @@ void function_chooser() {
 
 void user::add_user(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr,
                     Privilege privilege) {
-    cks(5, cur_username, username, password, name, mailAddr);
-    ckint(privilege);
-    loginUsers.getPrivilege(cur_username);
-    existUsers.addUser(User(username,privilege, name, mailAddr, password));
+    cks(4, username, password, name, mailAddr);
+    if (!existUsers.isFirstUser()) {
+        ck(cur_username);
+        ckint(privilege);
+        Privilege curPrivilege = loginUsers.getPrivilege(cur_username);
+        if (curPrivilege == -1)Error("CURRENT USER DOES NOT LOGIN");
+        if (privilege >= curPrivilege)Error("NO PRIVILEGE");
+    } else {
+        privilege = 10;
+        ckint(privilege);
+    }
+    existUsers.addUser(User(username, privilege, name, mailAddr, password));
     Return(0);
     Success();
 }
 
 void user::login(Username username, Password password) {
     cks(2, username, password);
-    if(loginUsers.isUserExist(username))Error("USER HAS ALREADY LOGIN");
     auto CurUserPair = existUsers.getUser(username);
-    if(!CurUserPair.second) Error("USER DOES NOT EXIST");
-    User& foundUser = CurUserPair.first;
+    if (!CurUserPair.second) Error("USER DOES NOT EXIST");
+    User &foundUser = CurUserPair.first;
     if (foundUser.password != password) Error("WRONG PASSWORD");
-    loginUsers.loginUser(foundUser);
+    if(!loginUsers.loginUser(foundUser))Error("USER HAS ALREADY LOGIN");
     Return(0);
     Success();
 }
 
 void user::logout(Username username) {
     ck(username);
-    if(loginUsers.logoutUser(username))Error("USER DOES NOT LOGIN");
+    if (loginUsers.logoutUser(username))Error("CURRENT USER DOES NOT LOGIN");
     Return(0);
     Success();
 }
@@ -196,19 +200,38 @@ void user::logout(Username username) {
 void user::query_profile(Username cur_username, Username username) {
     cks(2, cur_username, username);
     auto CurUserPair = loginUsers.getUser(cur_username);
-    if(!CurUserPair.second) Error("CURRENT USER DOES NOT LOGIN");
+    if (!CurUserPair.second) Error("CURRENT USER DOES NOT LOGIN");
     auto UserPair = existUsers.getUser(username);
-    if(!UserPair.second) Error("FINDING USER DOES NOT EXIST");
-    User& foundUser = UserPair.first;
+    if (!UserPair.second) Error("FINDING USER DOES NOT EXIST");
+    User &foundUser = UserPair.first;
     CoreUser &curUser = CurUserPair.first;
-    if(!(curUser.privilege > foundUser.privilege || curUser.username == foundUser.username)) Error("NO PRIVILEGE TO QUERY_PROFILE");
-    Return(string(foundUser.username)+' '+string(foundUser.name)+' '+string(foundUser.mailAddr) + ' ' + string(foundUser.privilege));
+    if (!(curUser.privilege > foundUser.privilege || curUser.username == foundUser.username)) Error("NO PRIVILEGE");
+    //FIXME 先不做了，逻辑不容易
+    Return(string(foundUser.username) + ' ' + string(foundUser.name) + ' ' + string(foundUser.mailAddr) + ' ' +
+           std::to_string(foundUser.privilege));
     Success();
 }
 
-void user::modify_profile(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr, Privilege privilege) {
+void user::modify_profile(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr,
+                          Privilege privilege) {
     cks(2, cur_username, username);
-    AssureLogin(cur_username);
+    auto curUserPair = loginUsers.getUser(cur_username);
+    if (!curUserPair.second) Error("CURRENT USER DOES NOT LOGIN");
+    Privilege curPrivilege = (cur_username == username) ? -2 : curUserPair.first.privilege;//-2表示解禁，小于任何权限
+    switch (existUsers.changeInfo(username, password, name, mailAddr,
+                                  privilege, curPrivilege)) {
+        case 0:
+            break;
+        case 1:
+            Error("FINDING USER DOES NOT EXIST");
+        case 2:
+            Error("NO PRIVILEGE");
+    }
+    if (privilege != -1) {
+        loginUsers.changePrivilege(username, privilege, curPrivilege);
+    }
+    Return(string(username) + ' ' + string(name) + ' ' + string(mailAddr) + ' ' +
+           std::to_string(privilege));
     Success();
 }
 
@@ -236,10 +259,10 @@ sjtu::vector<int> ints_spliter(const std::string &_keyword) {
 void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, Stations stations, Prices prices,
                       StartTime startTime, TravelTimes travelTimes, StopoverTimes stopoverTimes, SaleDates saleDates,
                       Type type) {
-    cks(8,trainID, stations,prices,
-        startTime, travelTimes,stopoverTimes, saleDates,
+    cks(8, trainID, stations, prices,
+        startTime, travelTimes, stopoverTimes, saleDates,
         type);
-    ckints(2,stationNum,seatNum);
+    ckints(2, stationNum, seatNum);
     sjtu::vector<Station> station_s = words_spliter<Station>(stations);
     sjtu::vector<TravelTime> travelTime_s = ints_spliter(travelTimes);
     sjtu::vector<StopoverTime> stopoverTime_s = ints_spliter(stopoverTimes);
@@ -266,20 +289,24 @@ void train::delete_train(TrainID trainID) {
 
 }
 
-void train::query_ticket(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation, TwoChoice sortFromLowerToHigherBy) {
+void train::query_ticket(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation,
+                         TwoChoice sortFromLowerToHigherBy) {
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
     Success();
 }
 
-void train::query_transfer(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation, TwoChoice sortFromLowerToHigherBy) {
+void train::query_transfer(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation,
+                           TwoChoice sortFromLowerToHigherBy) {
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
     Success();
 }
 
-void train::buy_ticket(Username username, TrainID trainId, MonthDate monthDate, TicketNum buyTicketNum, Station fromStation, Station toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
-    cks(5,username, trainId, monthDate, fromStation, toStation);
+void
+train::buy_ticket(Username username, TrainID trainId, MonthDate monthDate, TicketNum buyTicketNum, Station fromStation,
+                  Station toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
+    cks(5, username, trainId, monthDate, fromStation, toStation);
     ckint(buyTicketNum);
     AssureLogin(username);
 
@@ -313,7 +340,10 @@ void sys::log() {
 }
 
 void sys::clean() {
-
+    fclear("log.dat");
+    existUsers.clear();
+    loginUsers.clear();
+    //unsaletrain.clear train.clear train tickets.clear
 }
 
 void sys::exit() {

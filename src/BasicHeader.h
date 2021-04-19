@@ -104,6 +104,7 @@ struct HourMinute {
         str += ':';
         if(minute<10) str+='0';
         str+=('0'+minute);
+        return str;
     }
 
     friend ostream &operator<<(ostream &os, const HourMinute &hourMinute) {
@@ -144,6 +145,7 @@ struct MonthDate {
         str += '-';
         if(date<10) str+='0';
         str+=('0'+date);
+        return str;
     }
 
     friend ostream &operator<<(ostream &os, const MonthDate &date) {
@@ -214,27 +216,100 @@ struct Train {
 
 //template<typename T>
 struct ExistUsers{
-    void addUser(User user){}
-    void deleteUser(Username username){}
-    std::pair<User,bool> getUser(Username username){}
-    bool isUserExist(Username username){}
-    void changeInfo(Username username, User user){}
-    bool empty();
-    bool firstUser();
-private:
-//    BPlustree<Username, T> tree;
-}existUsers;
-//ExistUsers ;
-//ExistUsers<CoreUser> loginUsers;
+    //或许可以加缓存，可以做个缓存实验看看。
+    void addUser(User user){
+        //TODO
+        is_virgin = 0;
+        have_been_changed = 1;
 
-struct LoginUsers{//(这些或许可用指针，移动快？）
-    void loginUser(CoreUser user){}
-    bool logoutUser(Username username){}
-    std::pair<CoreUser, bool> getUser(Username username){}
-    Privilege getPrivilege(Username username){}
-    bool isUserExist(Username username){}
-    void changePrivilege(Username username, CoreUser user){}
-    bool empty();
+    }
+    std::pair<User,bool> getUser(Username username){
+        if(!have_been_changed && last_query_user.username == username) {
+            throw EfficiencyError_GetUserTwice();
+            //若不想费心，可改为 return {last_query_user,1};
+        }
+        User retUser;
+//        TODO
+        have_been_changed = 0;
+        last_query_user = retUser;
+    }
+    bool isUserExist(Username username){return getUser(username).second;}
+    bool changeInfo(Username username, Password password, Name name, MailAddr mailAddr,
+                    Privilege privilege, Privilege required_privilege_bigger_than_this){
+        have_been_changed = 1;
+        //将username 对应的 user 改变其Password password, Name name, MailAddr mailAddr,
+        //                    Privilege privilege， 并要求required_privilege_bigger_than_this > 用户的原privelege
+        //如果有为“”的值默认不变,如果privilege == -1默认不变
+        //if success, return true 0
+        //else if no user exist return 1
+        //else if no privilege return 2
+        //TODO
+    }
+    bool empty(){
+        //TODO
+
+    }
+    bool clear(){
+        have_been_changed = 1, is_virgin = 1;
+        //TODO
+        //不过先不用做这个
+    }
+    bool isFirstUser(){
+        return is_virgin;
+    }
+private:
+    bool have_been_changed = 1;//指上一次操作是否为写操作
+    bool is_virgin = 1;//指是否它还没有进行过任何addUser操作
+//    void changeMark(){have_been_changed = 1, is_virgin = 0;}
+    User last_query_user;//上一次读操作得到的User
+    class EfficiencyError_GetUserTwice{};//存在效率降低的连续两次读取同一username的逻辑失误，则抛出。
+}existUsers;
+
+struct LoginUsers{
+    //应该再有一个用户的bought tickets的信息
+    //或许可以加缓存
+    bool loginUser(CoreUser user){
+        //TODO
+        have_been_changed = 1;
+
+    }
+    bool logoutUser(Username username){
+        //TODO
+        have_been_changed = 1;
+    }
+    std::pair<CoreUser, bool> getUser(Username username){
+        if(!have_been_changed && last_query_user.username == username) {
+            throw EfficiencyError_GetUserTwice();
+            //若不想费心，可改为 return {last_query_user,1};
+        }
+        CoreUser retUser;
+//        TODO
+        have_been_changed = 0;
+        last_query_user = retUser;
+    }
+    Privilege getPrivilege(Username username){auto u = getUser(username); return (u.second)?u.first.privilege:-1;}
+    bool isUserExist(Username username){return getUser(username).second;}
+    int changePrivilege(Username username, Privilege privilege, Privilege required_privilege_bigger_than_this){//FIXME 用了这个就别用get了
+
+        //if success, return true 0
+        //else if no user exist return 1
+        //else if no privilege return 2
+        //TODO
+        have_been_changed = 1;
+
+    }
+    bool empty(){
+        //TODO
+    }
+    bool clear(){
+        have_been_changed = 0;
+        //TODO
+    }
+
+private:
+    bool have_been_changed = 1;
+    CoreUser last_query_user;
+    class EfficiencyError_GetUserTwice{};
 }loginUsers;
 
 struct NotOnSaleTrains{
