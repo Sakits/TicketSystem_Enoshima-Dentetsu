@@ -265,6 +265,8 @@ private:
     class EfficiencyError_GetUserTwice{};//存在效率降低的连续两次读取同一username的逻辑失误，则抛出。
 }existUsers;
 
+#include <unordered_map>
+//stub
 struct LoginUsers{
     //应该再有一个用户的bought tickets的信息
     //或许可以加缓存
@@ -300,6 +302,7 @@ struct LoginUsers{
     }
     bool empty(){
         //TODO
+//        return mapper.empty();
     }
     bool clear(){
         have_been_changed = 0;
@@ -310,6 +313,7 @@ private:
     bool have_been_changed = 1;
     CoreUser last_query_user;
     class EfficiencyError_GetUserTwice{};
+    std::unordered_map<User, Privilege> mapper();
 }loginUsers;
 
 struct NotOnSaleTrains{

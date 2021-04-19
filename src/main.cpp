@@ -90,7 +90,7 @@ void function_chooser() {
             chinese = "\\S{3}",
 //            chinese = "\\w/*[\u4e00-\u9fa5]*/",
     username = " ([a-zA-z]\\w{1,19})", _c = " -c" + username, _u = " -u" + username,
-            passwd = " (\\w{6,30})", _pu = " -p" + passwd,
+            passwd = " (\\w{1,30})", _pu = " -p" + passwd,
             name = " (" + chinese + "{2,5})", _nu = " -n" + name,
             mailAddr = " ([0-9a-zA-Z\\@\\.]{1,30})", _mu = " -m" + mailAddr,
             privilege = " (10|0-9)", _g = " -g" + privilege;
@@ -169,6 +169,7 @@ void user::add_user(Username cur_username, Username username, Password password,
         Privilege curPrivilege = loginUsers.getPrivilege(cur_username);
         if (curPrivilege == -1)Error("CURRENT USER DOES NOT LOGIN");
         if (privilege >= curPrivilege)Error("NO PRIVILEGE");
+        if (password.size() < 6)Error("PASSWORD IS TOO SHORT");
     } else {
         privilege = 10;
         ckint(privilege);
@@ -184,7 +185,7 @@ void user::login(Username username, Password password) {
     if (!CurUserPair.second) Error("USER DOES NOT EXIST");
     User &foundUser = CurUserPair.first;
     if (foundUser.password != password) Error("WRONG PASSWORD");
-    if(!loginUsers.loginUser(foundUser))Error("USER HAS ALREADY LOGIN");
+    if (!loginUsers.loginUser(foundUser))Error("USER HAS ALREADY LOGIN");
     Return(0);
     Success();
 }
@@ -205,9 +206,9 @@ void user::query_profile(Username cur_username, Username username) {
     if (!UserPair.second) Error("FINDING USER DOES NOT EXIST");
     User &foundUser = UserPair.first;
     CoreUser &curUser = CurUserPair.first;
-    if (!(curUser.privilege > foundUser.privilege || curUser.username == foundUser.username)) Error("NO PRIVILEGE");
+    if (!(curUser.privilege > foundUser.privilege || cur_username == username)) Error("NO PRIVILEGE");
     //FIXME 先不做了，逻辑不容易
-    Return(string(foundUser.username) + ' ' + string(foundUser.name) + ' ' + string(foundUser.mailAddr) + ' ' +
+    Return(string(username) + ' ' + string(foundUser.name) + ' ' + string(foundUser.mailAddr) + ' ' +
            std::to_string(foundUser.privilege));
     Success();
 }
@@ -343,6 +344,7 @@ void sys::clean() {
     fclear("log.dat");
     existUsers.clear();
     loginUsers.clear();
+    Return(0);
     //unsaletrain.clear train.clear train tickets.clear
 }
 
