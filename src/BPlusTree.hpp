@@ -6,8 +6,6 @@
 #include <cstdio>
 #include <fstream>
 
-using namespace std;
-
 class BPlusTree
 {
     static const int max_size = 40, block_size = max_size / 2;
@@ -17,7 +15,7 @@ class BPlusTree
 
     private:
         char file[30];
-        fstream fio;
+        std :: fstream fio;
         int prex = -1, prec, presize, prenxt;
 
         class Node
@@ -55,20 +53,20 @@ class BPlusTree
         template<typename T>
         void file_read(const int pos, T &p)
         {
-            fio.seekg(pos, ios :: beg);
+            fio.seekg(pos, std :: ios :: beg);
             fio.read(reinterpret_cast<char *>(&p), sizeof(p));
         }
 
         template<typename T>
         void file_write(const int pos, T &p)
         {
-            fio.seekg(pos, ios :: beg);
+            fio.seekg(pos, std :: ios :: beg);
             fio.write(reinterpret_cast<char *>(&p), sizeof(p));
         }
 
         int get_file_end()
         {
-            fio.seekg(0, ios :: end);
+            fio.seekg(0, std :: ios :: end);
             int pos = fio.tellp();
             return pos;
         }
@@ -103,30 +101,36 @@ class BPlusTree
         {
             strcpy(file, file_name);
 
-            fstream fin (file, ios :: in | ios :: binary);
+            std :: fstream fin (file, std :: ios :: in | std :: ios :: binary);
             if (!fin.is_open())
             {
-                fstream fout(file, ios :: out | ios :: binary);
+                std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
                 Node initnode;
                 fout.write(reinterpret_cast<char *>(&initnode), sizeof(initnode));
                 fout.close();
             }
-            fio.open(file, ios :: in | ios :: out | ios :: binary);
+            fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
         }
 
         ~BPlusTree() {fio.close();}
 
-        void insert(const char* _key, int file_pos, int x = 0, Node* const faptr = nullptr)
+        bool insert(const char* _key, int file_pos, bool unique = 0, int x = 0, Node* const faptr = nullptr)
         {
             Node now; file_read(x, now);
             int pos = get_pos(now, _key, file_pos);
 
             if (now.isleaf) 
-                insertone(now, pos, file_pos, _key, file_pos);
+            {
+                if (!unique || strcmp(now.key[pos], _key))
+                    insertone(now, pos, file_pos, _key, file_pos);
+                else
+                    return 0;
+            }
             else 
             {
                 pos -= (pos == now.size);
-                insert(_key, file_pos, now.child[pos], &now);
+                if (!insert(_key, file_pos, unique, now.child[pos], &now))
+                    return 0;
             }
 
             if (faptr)
@@ -194,6 +198,7 @@ class BPlusTree
             }
 
             file_write(x, now);
+            return 1;
         }
 
         bool erase(const char* _key, int file_pos = -1, int x = 0, Node* const faptr = nullptr)
@@ -435,14 +440,14 @@ class BPlusTree
             {
                 int ans;
                 prec++;
-                fio.seekg(prex + sizeof(int) * 4 + sizeof(int) * prec, ios :: beg);
+                fio.seekg(prex + sizeof(int) * 4 + sizeof(int) * prec, std :: ios :: beg);
                 fio.read(reinterpret_cast<char *>(&ans), sizeof(ans));
                 return ans;
             }
             else
             {
                 if (prenxt == -1) return -1;
-                Node now; fio.seekg(prenxt, ios :: beg);
+                Node now; fio.seekg(prenxt, std :: ios :: beg);
                 fio.read(reinterpret_cast<char *>(&now), sizeof(now));
                 prex = prenxt; prec = 0; presize = now.size; prenxt = now.nxtptr; 
                 return now.child[0];

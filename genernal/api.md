@@ -8,10 +8,10 @@
 	
 ## 插入
 B+ 树只用于储存节点对应信息在文件中的位置，所以 file_pos 为 int 类型。
+插入键值为 _key，文件位置为 file_pos 的点。
+unique = 1 （默认为 0）表示若树中已存在 _key 的键值的点则返回 0。
 
-插入键值为 _key，文件位置为 file_pos 的点
-
-> void insert(const char* _key, int file_pos);
+> bool insert(const char* _key, int file_pos, bool unique = 0);
 
 删除键值为 _key，文件位置为 file_pos 的点（若不输入 file_pos 则需保证键值为 _key 的节点只有一个）。
 找不到键值为 _key 的节点返回 0，删除成功返回 1。
