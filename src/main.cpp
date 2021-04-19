@@ -174,7 +174,7 @@ void user::add_user(Username cur_username, Username username, Password password,
         privilege = 10;
         ckint(privilege);
     }
-    existUsers.addUser(User(username, privilege, name, mailAddr, password));
+    existUsers.addUser(username, User(privilege, name, mailAddr, password));
     Return(0);
     Success();
 }
@@ -185,7 +185,7 @@ void user::login(Username username, Password password) {
     if (!CurUserPair.second) Error("USER DOES NOT EXIST");
     User &foundUser = CurUserPair.first;
     if (foundUser.password != password) Error("WRONG PASSWORD");
-    if (!loginUsers.loginUser(foundUser))Error("USER HAS ALREADY LOGIN");
+    if (!loginUsers.loginUser(username, foundUser.privilege))Error("USER HAS ALREADY LOGIN");
     Return(0);
     Success();
 }
@@ -205,11 +205,11 @@ void user::query_profile(Username cur_username, Username username) {
     auto UserPair = existUsers.getUser(username);
     if (!UserPair.second) Error("FINDING USER DOES NOT EXIST");
     User &foundUser = UserPair.first;
-    CoreUser &curUser = CurUserPair.first;
-    if (!(curUser.privilege > foundUser.privilege || cur_username == username)) Error("NO PRIVILEGE");
+    Privilege &curPrivilege = CurUserPair.first;
+    if (!(curPrivilege > foundUser.privilege || cur_username == username)) Error("NO PRIVILEGE");
     //FIXME 先不做了，逻辑不容易
     Return(string(username) + ' ' + string(foundUser.name) + ' ' + string(foundUser.mailAddr) + ' ' +
-           std::to_string(foundUser.privilege));
+                   std::to_string(foundUser.privilege));
     Success();
 }
 
@@ -218,7 +218,7 @@ void user::modify_profile(Username cur_username, Username username, Password pas
     cks(2, cur_username, username);
     auto curUserPair = loginUsers.getUser(cur_username);
     if (!curUserPair.second) Error("CURRENT USER DOES NOT LOGIN");
-    Privilege curPrivilege = (cur_username == username) ? -2 : curUserPair.first.privilege;//-2表示解禁，小于任何权限
+    Privilege curPrivilege = (cur_username == username) ? -2 : curUserPair.first;//-2表示解禁，小于任何权限
     switch (existUsers.changeInfo(username, password, name, mailAddr,
                                   privilege, curPrivilege)) {
         case 0:
