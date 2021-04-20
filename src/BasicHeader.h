@@ -221,12 +221,36 @@ typedef cStringType<10> TwoChoice;
 typedef std::string Stations, Prices, TravelTimes, StopoverTimes, SaleDates;
 
 
+template<class Key, class Value, class Hash>
+class OuterUniqueUnorderMap{
+public:
+
+    bool insert(const std::pair<Key,Value>& pair){
+    }
+    bool erase(const Key& key){
+    }
+    bool empty() const{
+    }
+    void clear(){
+    }
+
+    struct Iterator{};
+
+    std::pair<Iterator, bool> find(Key key){}
+
+    Value getItem(Iterator iter){}
+
+    void setItem(Iterator iter, Value value){}
+
+private:
+//    std::unordered_map<Key, Value, Hash> mapper;
+};
+
 //template<typename T>
 struct ExistUsers {
     //或许可以加缓存，可以做个缓存实验看看。
     bool addUser(Username username, User user) {
         //TODO
-
 
         bool has_success = mapper.insert({username, user}).second;
         if (has_success) {
@@ -295,6 +319,27 @@ private:
     };//存在效率降低的连续两次读取同一username的逻辑失误，则抛出。
 } existUsers;
 
+
+template<class Key, class Value, class Hash>
+//Hash是一个模板类名，它实例化后的一个对象例为auto h = Hash<string>(), 这个对象重载了括号，比如可以h(1),然后返回一个size_t
+class InnerUniqueUnorderMap{
+    public:
+
+    bool insert(const std::pair<Key,Value>& pair){
+    }
+    bool erase(const Key& key){
+    }
+    bool empty() const{
+    }
+    void clear(){
+    }
+
+    Value* find(Key key){
+    }
+
+private:
+//    std::unordered_map<Key, Value, Hash> mapper;
+};
 //stub
 struct LoginUsers {
     //应该再有一个用户的bought tickets的信息
@@ -374,19 +419,37 @@ struct Train {
     StopoverTime stopoverTimes[STATIONNUMMAX];
     SaleDate saleDate;
     Type type;
+
+    bool is_released = false;
 };
 
+struct Ticket{
 
-struct NotOnSaleTrains {
+};
+
+struct Trains {
     void addtrain(){}
-//            querytrain
-//    deleteTrain
+    void deletetrain(){}
+    void querytrain(){}
 } notOnSaleTrains;
 
-struct OnSaleTrains {
-//    saleticket
-//    querytrain
+struct Tickets {
+    void throwTicket(Train){}
+    void query_ticket(){}
+    void query_transfer(){}
+    void find_ticket_to_buy(){}
+    void add_refunded_ticket(){}
 } onSaleTrains;
+//Tickets和usertickets 耦合太密了，架构重改
+struct UserTickets{
+    void buy_ticket(){}
+    void refund_ticket(){}
+    void query_order(){}
+};
+
+struct WaitingQueue{
+
+};
 
 //    releaseTrain
 #endif //TRAINTICKET_BASICHEADER_H

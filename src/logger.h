@@ -10,37 +10,51 @@
 #include "filemanip.h"
 #include "BasicHeader.h"
 
+
 std::ofstream main_log("log.dat", std::ios::app);
 
-auto RED    = "\033[0;31;1m";
-auto GREEN  = "\033[0;32;1m";
+auto RED = "\033[0;31;1m";
+auto GREEN = "\033[0;32;1m";
 auto YELLOW = "\033[0;33;1m";
-auto BLUE   = "\033[0;34;1m";
-auto END    = "\033[0m";
-auto CUT    = "---------------------------------------------\n";
+auto BLUE = "\033[0;34;1m";
+auto END = "\033[0m";
+auto CUT = "---------------------------------------------\n";
 
-inline char* nowtime(){
+inline char *nowtime() {
     std::time_t now = std::time(0);
     return std::ctime(&now);
 }
 
 
+inline void log() {
+    main_log << std::flush;
+    std::ifstream fin("log.dat");
+    std::string s;
+    while (!fin.eof()) {
+        getline(fin, s);
+        std::cout << s << std::endl;
+    }
+    fin.close();
+    fclear("log.dat");
+}
 
+inline void cleanlog() {
+    fclear("log.dat");
+}
 
-
-#define ACT_INFO   __FUNCTION__
 
 #define Info(x)    main_log << BLUE << x << END << std::endl
-//inline void Success(){    main_log << GREEN  << "success " << END << std::endl << CUT;}
 
-class ErrorOccur {};
-inline void Error(const char* x)   {main_log << RED  << "error: " << x << END << std::endl << CUT;throw ErrorOccur();}
+class ErrorOccur {
+};
 
-#define FLUSHLOG main_log << std::flush
+inline void Error(const char *x) {
+    main_log << RED << "error: " << x << END << std::endl << CUT;
+    throw ErrorOccur();
+}
 
 
 #define putInfoTo main_log
-
 
 
 #define check1(x) putInfoTo << #x << "=" << x << "    ";if(std::string(x)==""){Error("INVALID PARAMETER ");}
@@ -53,15 +67,15 @@ inline void Error(const char* x)   {main_log << RED  << "error: " << x << END <<
 #define check8(x, y, z, a, b, c, d, e) check7(x,y,z,a,b,c,d)check1(e)
 #define check9(x, y, z, a, b, c, d, e, f) check8(x,y,z,a,b,c,d,e)check1(f)
 #define check10(x, y, z, a, b, c, d, e, f, g) check9(x,y,z,a,b,c,d,e,f)check1(g)
-#define check11(x, y, z, a, b, c, d, e, f, g,h) check10(x,y,z,a,b,c,d,e,f,g)check1(h)
-#define cks(num,...) do{putInfoTo <<__FUNCTION__ << ": ";check##num(__VA_ARGS__) putInfoTo << std::endl;}while(0)
+#define check11(x, y, z, a, b, c, d, e, f, g, h) check10(x,y,z,a,b,c,d,e,f,g)check1(h)
+#define cks(num, ...) do{putInfoTo <<__FUNCTION__ << ": ";check##num(__VA_ARGS__) putInfoTo << std::endl;}while(0)
 #define ck(x) do{putInfoTo <<__FUNCTION__ << ": ";check1(x) putInfoTo << std::endl;} while(0)
 
 #define checkint1(x) putInfoTo << #x << "=" << x << "    ";if(x==-1){Error("INVALID PARAMETER");}
 #define checkint2(x, y) checkint1(x)checkint1(y)
 #define checkint3(x, y, z) checkint2(x,y)checkint1(z)
 #define checkint4(x, y, z, a) checkint3(x,y,z)checkint1(a)
-#define ckints(num,...) do{checkint##num(__VA_ARGS__) putInfoTo << std::endl;}while(0)
+#define ckints(num, ...) do{checkint##num(__VA_ARGS__) putInfoTo << std::endl;}while(0)
 #define ckint(x) do{checkint1(x) putInfoTo << std::endl;} while(0)
 
 #define AssureLogin(u) if(!loginUsers.isUserExist(u))Error("USER DOES NOT LOGIN")

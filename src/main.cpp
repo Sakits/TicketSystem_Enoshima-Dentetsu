@@ -16,8 +16,8 @@
  * fans为答案文件路径，与AnsCheck联合使用（当AnsCheck被关闭时自动失效）
  */
 #define AnsCheck
-#define FileI { std::freopen("../data/basic_4/1.in", "r", stdin);};
-std::fstream fans("../data/basic_4/1.out");
+#define FileI { std::freopen("../data/basic_2/1.in", "r", stdin);};
+std::fstream fans("../data/basic_2/1.out");
 
 void initialize();
 
@@ -61,7 +61,6 @@ namespace train {
 }
 
 namespace sys {
-    void log();
 
     void noReturnClean();
 
@@ -84,7 +83,7 @@ void Return(T thing){
         main_log << RED  << "FAIL " << mystr << END << std::endl;
         main_log << RED  << "ANS= " << ansstr << END << std::endl << CUT;
         std::cout << RED << "DIFFERENT ANSWER\n" << "ANSWER IS: " << ansstr << "\nIWRONG IS: " << mystr << std::endl;
-        sys::log();
+        log();
 #ifndef TestMine
         exit(0);
 #endif
@@ -122,7 +121,7 @@ void function_chooser() {
         return " (" + strNoSpace + "(?:\\|" + strNoSpace + ")*)";
     };
     static const std::string
-            chinese = "\\S{3}",
+            chinese = "[^\\s\\|]{3}",
 //            chinese = "\\w/*[\u4e00-\u9fa5]*/",
     username = " ([a-zA-z]\\w{0,19})", _c = " -c" + username, _u = " -u" + username,
             passwd = " (\\S{1,30})", _pu = " -p" + passwd,//FIXME 不判password了！助教数据都爆了
@@ -138,12 +137,12 @@ void function_chooser() {
             price = seatNum, _p = " -p" + price, _pt = " -p (time|cost)", _qt = " -q (false|true)",
             _ps = " -p" + pluralStrMaker(price),
             startTime = " ((?:[0-1][0-9]|2[0-3]|[0-9]):[0-5][0-9])", _x = " -x" + startTime, _s = " -s" + startTime,
-            travelTime = " (10000|[1-9]\\\\d{0,3}|0)", _t = " -t" + travelTime,
+            travelTime = " (10000|[1-9]\\d{0,3}|0)", _t = " -t" + travelTime,
             _ts = " -t" + pluralStrMaker(travelTime),
             stopoverTime = travelTime, _o = " -o" + stopoverTime, _os = " -o" + pluralStrMaker(stopoverTime),
             saleDate = " (06-(?:0[1-9]|[1-2][0-9]|30)|0[7-8]-(?:0[1-9]|[1-2][0-9]|3[0-1]))",
             _d = " -d" + saleDate, _ds = " -d" + pluralStrMaker(saleDate),
-            type = " [A-Z]", _y = " -y" + type;
+            type = " ([A-Z])", _y = " -y" + type;
     getline(cin, input);
     input.erase(0, input.find_first_not_of(" "));
     input.erase(input.find_last_not_of(" ") + 1);
@@ -188,7 +187,7 @@ void function_chooser() {
              train::buy_ticket(pm(_u), pm(_i), pm(_d), pmint(_num), pm(_fromPlace), pm(_toPlace), pm(_qt)))
     trymatch("query_order", train::query_order(pm(_u)))//FIXME
     trymatch("refund_ticket", train::refund_ticket(pm(_u), pmint(_num)))
-    trymatch("log", sys::log())
+    trymatch("log", log())
     trymatch("clean", sys::clean())
     trymatch("exit", sys::exit())
 #undef trymatch
@@ -363,24 +362,12 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ckint(orderNumth);
     AssureLogin(username);
 
-    
 }
 
-void sys::log() {
-    FLUSHLOG;
-    std::ifstream fin("log.dat");
-    std::string s;
-    while (!fin.eof()) {
-        getline(fin, s);
-        std::cout << s << std::endl;
-    }
-    fin.close();
-    fclear("log.dat");
-}
 
 
 void sys::noReturnClean(){
-    fclear("log.dat");
+    cleanlog();
     existUsers.clear();
     loginUsers.clear();
 }
@@ -392,8 +379,10 @@ void sys::clean() {
 
 void sys::exit() {
     Return("bye");
-//    sys::log();//FIXME to debug
+//    log();//FIXME to debug
     std::exit(0);
 }
 
-
+//FIXME1.重构log文件结构
+//FIXME2.wrapp unwrap函数
+//FIXME3.更提出map类
