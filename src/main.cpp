@@ -1,3 +1,5 @@
+
+
 #include <iostream>
 #include <cstring>
 #include <cmath>
@@ -8,6 +10,14 @@
 #include "logger.h"
 #include "vector.hpp"
 
+/*
+ * AnsCheck为文件对标机开关，需要把data文件夹放入目录使用
+ * FileI为读入文件路径，如果想控制台输入只需要把这行注掉
+ * fans为答案文件路径，与AnsCheck联合使用（当AnsCheck被关闭时自动失效）
+ */
+#define AnsCheck
+#define FileI { std::freopen("../data/basic_4/1.in", "r", stdin);};
+std::fstream fans("../data/basic_4/1.out");
 
 void initialize();
 
@@ -53,15 +63,40 @@ namespace train {
 namespace sys {
     void log();
 
+    void noReturnClean();
+
     void clean();
 
     void exit();
 }
 
+template<class T>
+void Return(T thing){
+    std::cout << thing << std::endl;
+#ifdef AnsCheck
+    std::string ansstr, mystr;
+    std::getline(fans, ansstr);
+//    std::cout << ansstr << std::endl;
+    std::stringstream ss;
+    ss << thing;
+    mystr = ss.str();
+    if(mystr!=ansstr){
+        main_log << RED  << "FAIL " << mystr << END << std::endl;
+        main_log << RED  << "ANS= " << ansstr << END << std::endl << CUT;
+        std::cout << RED << "DIFFERENT ANSWER\n" << "ANSWER IS: " << ansstr << "\nIWRONG IS: " << mystr << std::endl;
+        sys::log();
+#ifndef TestMine
+        exit(0);
+#endif
+    }
+#endif
+    main_log << GREEN  << "success " << thing << END << std::endl << CUT;
+}
+
 
 int main() {
-#ifdef FileIO
-    FileIO
+#ifdef FileI
+    FileI
 #endif
     initialize();
     while (true) {
@@ -69,7 +104,7 @@ int main() {
             function_chooser();
         }
         catch (ErrorOccur) {
-            std::cout << "-1" << std::endl;
+            Return(-1);
         }
     }
 }
@@ -77,7 +112,7 @@ int main() {
 std::string input;
 
 void initialize() {
-
+    sys::noReturnClean();//FIXME used to debug
 }
 
 void function_chooser() {
@@ -89,11 +124,11 @@ void function_chooser() {
     static const std::string
             chinese = "\\S{3}",
 //            chinese = "\\w/*[\u4e00-\u9fa5]*/",
-    username = " ([a-zA-z]\\w{1,19})", _c = " -c" + username, _u = " -u" + username,
-            passwd = " (\\w{1,30})", _pu = " -p" + passwd,
+    username = " ([a-zA-z]\\w{0,19})", _c = " -c" + username, _u = " -u" + username,
+            passwd = " (\\S{1,30})", _pu = " -p" + passwd,//FIXME 不判password了！助教数据都爆了
             name = " (" + chinese + "{2,5})", _nu = " -n" + name,
             mailAddr = " ([0-9a-zA-Z\\@\\.]{1,30})", _mu = " -m" + mailAddr,
-            privilege = " (10|0-9)", _g = " -g" + privilege;
+            privilege = " (10|[0-9])", _g = " -g" + privilege;
     static const std::string
             trainID = username, _i = " -i" + trainID,
             stationNum = " (100|[1-9][0-9]|[2-9])", _n = " -n" + stationNum, _num = " -n (\\%d+)",
@@ -114,7 +149,7 @@ void function_chooser() {
     input.erase(input.find_last_not_of(" ") + 1);
     if (cin.eof()) exit(0);
     if (input == "") return;
-    Info("try to " + input);
+    Info(input);
 
     static auto match = [&parameter](const std::string &str) -> bool {
         return regex_search(input, parameter, regex("^" + str));
@@ -176,7 +211,7 @@ void user::add_user(Username cur_username, Username username, Password password,
     }
     existUsers.addUser(username, User(privilege, name, mailAddr, password));
     Return(0);
-    Success();
+    
 }
 
 void user::login(Username username, Password password) {
@@ -187,14 +222,14 @@ void user::login(Username username, Password password) {
     if (foundUser.password != password) Error("WRONG PASSWORD");
     if (!loginUsers.loginUser(username, foundUser.privilege))Error("USER HAS ALREADY LOGIN");
     Return(0);
-    Success();
+    
 }
 
 void user::logout(Username username) {
     ck(username);
-    if (loginUsers.logoutUser(username))Error("CURRENT USER DOES NOT LOGIN");
+    if (!loginUsers.logoutUser(username))Error("CURRENT USER DOES NOT LOGIN");
     Return(0);
-    Success();
+    
 }
 
 
@@ -210,7 +245,7 @@ void user::query_profile(Username cur_username, Username username) {
     //FIXME 先不做了，逻辑不容易
     Return(string(username) + ' ' + string(foundUser.name) + ' ' + string(foundUser.mailAddr) + ' ' +
                    std::to_string(foundUser.privilege));
-    Success();
+    
 }
 
 void user::modify_profile(Username cur_username, Username username, Password password, Name name, MailAddr mailAddr,
@@ -219,8 +254,9 @@ void user::modify_profile(Username cur_username, Username username, Password pas
     auto curUserPair = loginUsers.getUser(cur_username);
     if (!curUserPair.second) Error("CURRENT USER DOES NOT LOGIN");
     Privilege curPrivilege = (cur_username == username) ? -2 : curUserPair.first;//-2表示解禁，小于任何权限
-    switch (existUsers.changeInfo(username, password, name, mailAddr,
-                                  privilege, curPrivilege)) {
+    const pair<User, int> &changedUserPair = existUsers.changeInfo(username, password, name, mailAddr,
+                                                                   privilege, curPrivilege);
+    switch (changedUserPair.second) {
         case 0:
             break;
         case 1:
@@ -231,9 +267,10 @@ void user::modify_profile(Username cur_username, Username username, Password pas
     if (privilege != -1) {
         loginUsers.changePrivilege(username, privilege, curPrivilege);
     }
-    Return(string(username) + ' ' + string(name) + ' ' + string(mailAddr) + ' ' +
-           std::to_string(privilege));
-    Success();
+    const User &changedUser = changedUserPair.first;
+    Return(string(username) + ' ' + string(changedUser.name) + ' ' + string(changedUser.mailAddr) + ' ' +
+           std::to_string(changedUser.privilege));//显然应该以她现在的名字返回啊
+    
 }
 
 template<class T>
@@ -270,23 +307,23 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
     sjtu::vector<Price> price_s = ints_spliter(prices);
     sjtu::vector<SaleDate> saleDate_s = words_spliter<SaleDate>(saleDates);
 
-    Success();
+    
 }
 
 void train::release_train(TrainID trainID) {
     ck(trainID);
-    Success();
+    
 }
 
 void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     cks(2, trainID, startingMonthDate);
 
-    Success();
+    
 }
 
 void train::delete_train(TrainID trainID) {
     ck(trainID);
-    Success();
+    
 
 }
 
@@ -294,14 +331,14 @@ void train::query_ticket(Station fromStation, Station toStation, MonthDate month
                          TwoChoice sortFromLowerToHigherBy) {
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
-    Success();
+    
 }
 
 void train::query_transfer(Station fromStation, Station toStation, MonthDate monthDateWhenStartFromfromStation,
                            TwoChoice sortFromLowerToHigherBy) {
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
-    Success();
+    
 }
 
 void
@@ -311,14 +348,14 @@ train::buy_ticket(Username username, TrainID trainId, MonthDate monthDate, Ticke
     ckint(buyTicketNum);
     AssureLogin(username);
 
-    Success();
+    
 }
 
 void train::query_order(Username username) {
     ck(username);
     AssureLogin(username);
 
-    Success();
+    
 }
 
 void train::refund_ticket(Username username, OrderNumth orderNumth) {
@@ -326,7 +363,7 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ckint(orderNumth);
     AssureLogin(username);
 
-    Success();
+    
 }
 
 void sys::log() {
@@ -338,18 +375,24 @@ void sys::log() {
         std::cout << s << std::endl;
     }
     fin.close();
+    fclear("log.dat");
 }
 
-void sys::clean() {
+
+void sys::noReturnClean(){
     fclear("log.dat");
     existUsers.clear();
     loginUsers.clear();
+}
+
+void sys::clean() {
+    sys::noReturnClean();
     Return(0);
-    //unsaletrain.clear train.clear train tickets.clear
 }
 
 void sys::exit() {
-    std::cout << "bye" << std::endl;
+    Return("bye");
+//    sys::log();//FIXME to debug
     std::exit(0);
 }
 

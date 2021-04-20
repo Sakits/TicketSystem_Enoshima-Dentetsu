@@ -16,6 +16,9 @@
 #include <cassert>
 #include <sstream>
 #include <utility>
+#include <unordered_map>
+//FIXME 这只是个stub，记得删了
+
 
 
 template<int N>
@@ -93,58 +96,77 @@ public:
 struct HourMinute {
     int hour = -1;
     int minute = -1;
-    HourMinute(){}
-    HourMinute(std::string str) : hour((str[0]-'0')*10+str[1]-'0'), minute((str[3]-'0')*10+str[4]-'0'){}
 
-    operator std::string() const{
+    HourMinute() {}
+
+    HourMinute(std::string str) : hour((str[0] - '0') * 10 + str[1] - '0'),
+                                  minute((str[3] - '0') * 10 + str[4] - '0') {}
+
+    operator std::string() const {
         if (hour == -1) return std::string();
         std::string str;
-        if(hour<10)str+='0';
-        str+=('0'+hour);
+        if (hour < 10)str += '0';
+        str += ('0' + hour);
         str += ':';
-        if(minute<10) str+='0';
-        str+=('0'+minute);
+        if (minute < 10) str += '0';
+        str += ('0' + minute);
         return str;
     }
 
     friend ostream &operator<<(ostream &os, const HourMinute &hourMinute) {
-        os << ((hourMinute.hour < 10) ? "0" : "") << hourMinute.hour << ":" << ((hourMinute.minute < 10) ? "0" : "") << hourMinute.minute;
+        os << ((hourMinute.hour < 10) ? "0" : "") << hourMinute.hour << ":" << ((hourMinute.minute < 10) ? "0" : "")
+           << hourMinute.minute;
         return os;
     }
 };
+
 struct MonthDate {
     int month = 0;
     int date = 0;
-    void testvaild()const{assert(month < 6 || month > 8 || date < 0 || date > 31);}
-    MonthDate(int month, int date) : month(month), date(date) {testvaild();}
-    MonthDate(std::string str) : month(str[1] - '0'), date((str[3]-'0')*10+str[4]-'0') {}
-    MonthDate& operator++(){
+
+    void testvaild() const { assert(month < 6 || month > 8 || date < 0 || date > 31); }
+
+    MonthDate(int month, int date) : month(month), date(date) { testvaild(); }
+
+    MonthDate(std::string str) : month(str[1] - '0'), date((str[3] - '0') * 10 + str[4] - '0') {}
+
+    MonthDate &operator++() {
         testvaild();
-        if((date == 30 && month == 6) || (date == 31 && (month == 7 || month == 8))){
+        if ((date == 30 && month == 6) || (date == 31 && (month == 7 || month == 8))) {
             month += 1, date = 1;
             return *this;
         }
         date += 1;
         return *this;
     }
-    operator int() const{
+
+    operator int() const {
         testvaild();
         int ans = date;
         int i = month;
-        if (i == 9) {ans += 31; --i;}
-        if (i == 8) {ans += 31; --i;}
-        if (i == 7) {ans += 30; --i;}
+        if (i == 9) {
+            ans += 31;
+            --i;
+        }
+        if (i == 8) {
+            ans += 31;
+            --i;
+        }
+        if (i == 7) {
+            ans += 30;
+            --i;
+        }
         return ans;
     }
 
-    operator std::string() const{
+    operator std::string() const {
         if (month == 0) return std::string();
         std::string str;
-        str+='0';
-        str+=('0'+month);
+        str += '0';
+        str += ('0' + month);
         str += '-';
-        if(date<10) str+='0';
-        str+=('0'+date);
+        if (date < 10) str += '0';
+        str += ('0' + date);
         return str;
     }
 
@@ -161,16 +183,19 @@ typedef cStringType<33> MailAddr;
 typedef int Privilege;
 
 
-struct User{
+struct User {
     Privilege privilege;
     Name name;
     MailAddr mailAddr;
     Password password;
+
     User() = default;
+
     User(Privilege privilege, const Name &name, const MailAddr &mailAddr,
          const Password &password) : privilege(privilege), name(name), mailAddr(mailAddr),
                                      password(password) {}
-    operator int(){
+
+    operator int() {
         return privilege;
     }
 };
@@ -185,41 +210,59 @@ struct User{
 //MailAddr mailAddr;
 
 typedef cStringType<22> TrainID;
-typedef int StationNum,SeatNum,TicketNum,OrderNumth;
-typedef int TravelTime,StopoverTime;
+typedef int StationNum, SeatNum, TicketNum, OrderNumth;
+typedef int TravelTime, StopoverTime;
 typedef int Price;
 typedef cStringType<44> Station;
 typedef HourMinute StartTime;
 typedef MonthDate SaleDate;
 typedef cStringType<2> Type;
 typedef cStringType<10> TwoChoice;
-typedef std::string Stations,Prices,TravelTimes,StopoverTimes,SaleDates;
+typedef std::string Stations, Prices, TravelTimes, StopoverTimes, SaleDates;
 
 
 //template<typename T>
-struct ExistUsers{
+struct ExistUsers {
     //或许可以加缓存，可以做个缓存实验看看。
-    void addUser(Username username, User user){
+    bool addUser(Username username, User user) {
         //TODO
-        is_virgin = 0;
-        have_been_changed = 1;
 
-    }
-    std::pair<User,bool> getUser(Username username){
-        if(!have_been_changed && last_query_username == username) {
-            throw EfficiencyError_GetUserTwice();
-            //若不想费心，可改为 return {last_query_privilege,1};
+
+        bool has_success = mapper.insert({username, user}).second;
+        if (has_success) {
+            is_virgin = 0;
+            have_been_changed = 1;
         }
-        User retUser;
-//        TODO
-        have_been_changed = 0;
-        last_query_user = retUser;
-        last_query_username = username;
+        return has_success;
     }
-    bool isUserExist(Username username){return getUser(username).second;}
-    bool changeInfo(Username username, Password password, Name name, MailAddr mailAddr,
-                    Privilege privilege, Privilege required_privilege_bigger_than_privilege){
+
+    std::pair<User, bool> getUser(Username username) {
+        if (!have_been_changed && last_query_username == username) {
+            throw EfficiencyError_GetUserTwice();
+            //若不想费心，可改为 return {last_query_user,1};
+        }
+        auto ptr = mapper.find(username);
+        if (ptr == mapper.end()) return {User(), 0};
+        have_been_changed = 0;
+        last_query_user = ptr->second;
+        return {ptr->second, 1};
+    }
+
+    bool isUserExist(Username username) { return getUser(username).second; }
+
+    pair<User,int> changeInfo(Username username, Password password, Name name, MailAddr mailAddr,
+                    Privilege privilege, Privilege required_privilege_bigger_than_privilege) {
+        auto ptr = mapper.find(username);
+        if (ptr == mapper.end()) return {User(),1};
+        if (ptr->second.privilege >= required_privilege_bigger_than_privilege) return {User(),2};
+        User previous_user = ptr->second;
+        const User &changed_user = User(privilege == -1 ? previous_user.privilege : privilege,
+                                        name == "" ? previous_user.name : name,
+                                        mailAddr == "" ? previous_user.mailAddr : mailAddr,
+                                        password == "" ? previous_user.password : password);
+        ptr->second = changed_user;//FIXME 到时候这个指针应该改成一个函数什么的，因为做不到引用传参嘛
         have_been_changed = 1;
+        return {changed_user,0};
         //将username 对应的 user 改变其Password password, Name name, MailAddr mailAddr,
         //                    Privilege privilege， 并要求required_privilege_bigger_than_this > 用户的原privelege
         //如果有为“”的值默认不变,如果privilege == -1默认不变
@@ -228,83 +271,95 @@ struct ExistUsers{
         //else if no privilege return 2
         //TODO
     }
-    bool empty(){
-        //TODO
 
+    bool empty() {
+        return mapper.empty();
     }
-    void clear(){
-        have_been_changed = 1, is_virgin = 1;
-        //TODO
-        //不过先不用做这个
+
+    void clear() {
+        have_been_changed = 0, is_virgin = 1;
+        mapper.clear();
     }
-    bool isFirstUser(){
+
+    bool isFirstUser() {
         return is_virgin;
     }
+
 private:
+    std::unordered_map<Username, User, std::hash<std::string>> mapper;
     bool have_been_changed = 1;//指上一次操作是否为写操作
     bool is_virgin = 1;//指是否它还没有进行过任何addUser操作
-//    void changeMark(){have_been_changed = 1, is_virgin = 0;}
     Username last_query_username;//上一次读操作得到的User
     User last_query_user;//上一次读操作得到的User
-    class EfficiencyError_GetUserTwice{};//存在效率降低的连续两次读取同一username的逻辑失误，则抛出。
-}existUsers;
+    class EfficiencyError_GetUserTwice {
+    };//存在效率降低的连续两次读取同一username的逻辑失误，则抛出。
+} existUsers;
 
-#include <unordered_map>
 //stub
-struct LoginUsers{
+struct LoginUsers {
     //应该再有一个用户的bought tickets的信息
     //或许可以加缓存
-    bool loginUser(Username username, Privilege privilege){
-        //TODO
-        bool has_success = mapper.insert({username,privilege}).second;
-        if(has_success)have_been_changed = 1;
+    bool loginUser(Username username, Privilege privilege) {
+        bool has_success = mapper.insert({username, privilege}).second;
+        if (has_success)have_been_changed = 1;
         return has_success;
     }
-    bool logoutUser(Username username){
-        //TODO
+
+    bool logoutUser(Username username) {
         bool has_success = mapper.erase(username);
-        if(has_success)have_been_changed = 1;
+        if (has_success)have_been_changed = 1;
         return has_success;
     }
-    std::pair<Privilege, bool> getUser(Username username){
-        if(!have_been_changed && last_query_username == username) {
+
+    std::pair<Privilege, bool> getUser(Username username) {
+        if (!have_been_changed && last_query_username == username) {
             throw EfficiencyError_GetUserTwice();
             //若不想费心，可改为 return {last_query_privilege,1};
         }
         auto ptr = mapper.find(username);
-        if(ptr==mapper.end()) return {-1,0};
+        if (ptr == mapper.end()) return {-1, 0};
         have_been_changed = 0;
         last_query_privilege = ptr->second;
-        return{ptr->second,1};
+        return {ptr->second, 1};
     }
-    Privilege getPrivilege(Username username){auto u = getUser(username); return (u.second)?u.first:-1;}
-    bool isUserExist(Username username){return getUser(username).second;}
-    int changePrivilege(Username username, Privilege privilege, Privilege required_privilege_bigger_than_privilege){
+
+    Privilege getPrivilege(Username username) {
+        auto u = getUser(username);
+        return (u.second) ? u.first : -1;
+    }
+
+    bool isUserExist(Username username) { return getUser(username).second; }
+
+    int changePrivilege(Username username, Privilege privilege, Privilege required_privilege_bigger_than_privilege) {
         //if success, return true 0
         //else if no user exist return 1
         //else if no privilege return 2
         auto ptr = mapper.find(username);
-        if(ptr==mapper.end()) return 1;
-        if(ptr->second >= required_privilege_bigger_than_privilege) return 2;
+        if (ptr == mapper.end()) return 1;
+        if (ptr->second >= required_privilege_bigger_than_privilege) return 2;
         ptr->second = privilege;
         have_been_changed = 1;
         return 0;
     }
-    bool empty(){
+
+    bool empty() {
         return mapper.empty();
     }
-    void clear(){
+
+    void clear() {
         have_been_changed = 0;
         mapper.clear();
     }
 
 private:
-    bool have_been_changed = 1;
-    Privilege last_query_privilege;
-    Username last_query_username;//上一次读操作得到的User
-    class EfficiencyError_GetUserTwice{};
     std::unordered_map<Username, Privilege, std::hash<std::string>> mapper;
-}loginUsers;
+    bool have_been_changed = 1;
+    Username last_query_username;//上一次读操作得到的User
+    Privilege last_query_privilege;
+
+    class EfficiencyError_GetUserTwice {
+    };
+} loginUsers;
 
 
 struct Train {
@@ -322,16 +377,16 @@ struct Train {
 };
 
 
-struct NotOnSaleTrains{
-//    addtrain
+struct NotOnSaleTrains {
+    void addtrain(){}
 //            querytrain
 //    deleteTrain
-}notOnSaleTrains;
+} notOnSaleTrains;
 
-struct OnSaleTrains{
+struct OnSaleTrains {
 //    saleticket
 //    querytrain
-}onSaleTrains;
+} onSaleTrains;
 
 //    releaseTrain
 #endif //TRAINTICKET_BASICHEADER_H
