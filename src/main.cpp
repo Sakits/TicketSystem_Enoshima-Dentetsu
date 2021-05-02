@@ -205,7 +205,7 @@ void user::add_user(Username cur_username, Username username, Password password,
                     Privilege privilege) {
     ResetClock;
     cks(4, username, password, name, mailAddr);
-    if (!existUsers.isFirstUser()) {
+    if (!existUsers.empty()) {//这里把它的语义改了下，不过应该无伤大雅，本来要判的是isFirstUser()的
         ck(cur_username);
         ckint(privilege);
         Privilege curPrivilege = *(loginUsers.find(cur_username));
@@ -216,7 +216,7 @@ void user::add_user(Username cur_username, Username username, Password password,
         privilege = 10;
         ckint(privilege);
     }
-    existUsers.addUser(username, User(privilege, name, mailAddr, password));
+    existUsers.insert({username, User(privilege, name, mailAddr, password)});
     Return(0);
 
 }
@@ -224,9 +224,9 @@ void user::add_user(Username cur_username, Username username, Password password,
 void user::login(Username username, Password password) {
     ResetClock;
     cks(2, username, password);
-    auto CurUserPair = existUsers.getUser(username);
+    auto CurUserPair = existUsers.find(username);
     if (!CurUserPair.second) Error("USER DOES NOT EXIST");
-    User &foundUser = CurUserPair.first;
+    const User &foundUser = existUsers.getItem(CurUserPair.first);
     if (foundUser.password != password) Error("WRONG PASSWORD");
     if (!loginUsers.insert({username, foundUser.privilege}))Error("USER HAS ALREADY LOGIN");
     Return(0);
@@ -247,12 +247,11 @@ void user::query_profile(Username cur_username, Username username) {
     cks(2, cur_username, username);
     auto curUserPtr = loginUsers.find(cur_username);
     if (!curUserPtr) Error("CURRENT USER DOES NOT LOGIN");
-    auto UserPair = existUsers.getUser(username);
+    auto UserPair = existUsers.find(username);
     if (!UserPair.second) Error("FINDING USER DOES NOT EXIST");
-    User &foundUser = UserPair.first;
+    const User &foundUser = existUsers.getItem(UserPair.first);
     Privilege &curPrivilege = *curUserPtr;
     if (!(curPrivilege > foundUser.privilege || cur_username == username)) Error("NO PRIVILEGE");
-    //FIXME 先不做了，逻辑不容易
     Return(username + ' ' + foundUser.name + ' ' + foundUser.mailAddr + ' ' +
            std::to_string(foundUser.privilege));
 
@@ -265,23 +264,21 @@ void user::modify_profile(Username cur_username, Username username, Password pas
     auto curUserPtr = loginUsers.find(cur_username);
     if (!curUserPtr) Error("CURRENT USER DOES NOT LOGIN");
     Privilege curPrivilege = (cur_username == username) ? -2 : *curUserPtr;//-2表示解禁，小于任何权限
-    const pair<User, int> &changedUserPair = existUsers.changeInfo(username, password, name, mailAddr,
-                                                                   privilege, curPrivilege);
-    switch (changedUserPair.second) {
-        case 0:
-            break;
-        case 1:
-            Error("FINDING USER DOES NOT EXIST");
-        case 2:
-            Error("NO PRIVILEGE");
-    }
+
+    auto ptr = existUsers.find(username);
+    if (!ptr.second) Error("FINDING USER DOES NOT EXIST");
+    User previous_user = existUsers.getItem(ptr.first);
+    if (previous_user.privilege >= curPrivilege) Error("NO PRIVILEGE");
+    const User &changedUser = User(privilege == -1 ? previous_user.privilege : privilege,
+                                   name == "" ? previous_user.name : name,
+                                   mailAddr == "" ? previous_user.mailAddr : mailAddr,
+                                   password == "" ? previous_user.password : password);
+    existUsers.setItem(ptr.first, changedUser);
     if (privilege != -1) {
         auto ptr = loginUsers.find(username);
-        if (!ptr)  Error("FINDING USER DOES NOT EXIST");
-        if (*ptr >= curPrivilege)  Error("NO PRIVILEGE");
-        *ptr = privilege;//better 可改完上面后更短
+        if (ptr)
+            *ptr = privilege;//better 可改完上面后更短
     }
-    const User &changedUser = changedUserPair.first;
     Return(username + ' ' + changedUser.name + ' ' + changedUser.mailAddr + ' ' +
            std::to_string(changedUser.privilege));//显然应该以她现在的名字返回啊
 
@@ -322,18 +319,19 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
     sjtu::vector<Price> price_s = ints_spliter(prices);
     sjtu::vector<SaleDate> saleDate_s = words_spliter<SaleDate>(saleDates);
     if (!(station_s.size() == stationNum && price_s.size() == stationNum - 1 && travelTime_s.size() == stationNum - 1
-    && stopoverTime_s.size() == std::max(1,stationNum - 2))){
+          && stopoverTime_s.size() == std::max(1, stationNum - 2))) {
         Error("NUM OF '|' DOES NOT MATCH");
     }
 
-    existTrains.insert({trainID, Train(stationNum, station_s,seatNum, price_s,startTime, travelTime_s,stopoverTime_s,saleDate_s,type)});
+    existTrains.insert({trainID, Train(stationNum, station_s, seatNum, price_s, startTime, travelTime_s, stopoverTime_s,
+                                       saleDate_s, type)});
 
 }
 
 TrainPtr getTrainPtr(TrainID trainID) {
-    /*auto curTrainPair = existTrains.find(trainID);
+    auto curTrainPair = existTrains.find(trainID);
     if (!curTrainPair.second) Error("FINDING TRAIN DOES NOT EXIST");
-    return curTrainPair.first;*/
+    return curTrainPair.first;
 }
 
 void AssureLogin(Username username) {
@@ -341,17 +339,17 @@ void AssureLogin(Username username) {
 }
 
 void train::release_train(TrainID trainID) {
- /*   ResetClock;
-    ck(trainID);
-    TrainPtr trainPtr = getTrainPtr(trainID);
-    Train train = existTrains.getItem(trainPtr);
-    if(train.is_released == 1)Error("TRAIN HAS ALREADY BE RELEASED");
-    train.is_released = 1;
-    int duration = train.endSaleDate - train.startSaleDate + 1;
-    for(int i = 0; i < train.stationNum - 1; ++i)
-        for (int j = 0; j < duration; ++j)
-            train.ticketNums[i][j] = train.seatNum;
-    existTrains.setItem(trainPtr, train);*/
+       ResetClock;
+       ck(trainID);
+       TrainPtr trainPtr = getTrainPtr(trainID);
+       Train train = existTrains.getItem(trainPtr);
+       if(train.is_released == 1)Error("TRAIN HAS ALREADY BE RELEASED");
+       train.is_released = 1;
+       int duration = train.endSaleDate - train.startSaleDate + 1;
+       for(int i = 0; i < train.stationNum - 1; ++i)
+           for (int j = 0; j < duration; ++j)
+               train.ticketNums[i][j] = train.seatNum;
+       existTrains.setItem(trainPtr, train);
 
 //    train.stations...
 //    stations.setbit(...);//setaccording to stations
@@ -359,7 +357,7 @@ void train::release_train(TrainID trainID) {
 }
 
 void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
-    /*ResetClock;
+    ResetClock;
     cks(2, trainID, startingMonthDate);
     TrainPtr trainPtr = getTrainPtr(trainID);
     Train train = existTrains.getItem(trainPtr);
@@ -372,14 +370,14 @@ void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
         Return(train.stations[i]+" "+std::string(FullDate(startingMonthDate, train.startTime) += train
                 .arrivingTimes[i]) + " -> " + std::string(FullDate(startingMonthDate, train.startTime) += train
                 .leavingTimes[i]) + " " + ((i!=train.stationNum)?to_string(train.prices[i]): "x"));
-    }*/
+    }
 }
 
 void train::delete_train(TrainID trainID) {
-    /*ResetClock;
+    ResetClock;
     ck(trainID);
     if(!existTrains.erase(trainID))Error("DELETE TRAIN DOES NOT EXIST");
-    Return(0);*/
+    Return(0);
 }
 
 void train::query_ticket(StationName fromStation, StationName toStation, MonthDate monthDateWhenStartFromfromStation,
@@ -400,8 +398,8 @@ void train::query_transfer(StationName fromStation, StationName toStation, Month
 }
 
 void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, TicketNum buyTicketNum,
-                  StationName fromStation,
-                  StationName toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
+                       StationName fromStation,
+                       StationName toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
     ResetClock;
     cks(5, username, trainID, monthDate, fromStation, toStation);
     ckint(buyTicketNum);
