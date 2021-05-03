@@ -16,7 +16,7 @@
 #define AnsCheck
 #define FileI { std::freopen("../data/basic_1/1.in", "r", stdin);};
 std::fstream fans("../data/basic_1/1.out");
-//#define TimeTracing
+#define TimeTracing
 
 
 
@@ -33,10 +33,7 @@ auto CUT = "---------------------------------------------\n";
 
 std::ofstream main_log("log.dat", std::ios::app);
 
-#define putInfoTo main_log
-
-
-#define check1(x) putInfoTo << #x << "=" << x << "    ";if(std::string(x)==""){Error("INVALID PARAMETER ");}
+#define check1(x) main_log << #x << "=" << x << "    ";if(std::string(x)==""){Error("INVALID PARAMETER ");}
 #define check2(x, y) check1(x)check1(y)
 #define check3(x, y, z) check2(x,y)check1(z)
 #define check4(x, y, z, a) check3(x,y,z)check1(a)
@@ -47,15 +44,15 @@ std::ofstream main_log("log.dat", std::ios::app);
 #define check9(x, y, z, a, b, c, d, e, f) check8(x,y,z,a,b,c,d,e)check1(f)
 #define check10(x, y, z, a, b, c, d, e, f, g) check9(x,y,z,a,b,c,d,e,f)check1(g)
 #define check11(x, y, z, a, b, c, d, e, f, g, h) check10(x,y,z,a,b,c,d,e,f,g)check1(h)
-#define cks(num, ...) do{putInfoTo <<__FUNCTION__ << ": ";check##num(__VA_ARGS__) putInfoTo << std::endl;}while(0)
-#define ck(x) do{putInfoTo <<__FUNCTION__ << ": ";check1(x) putInfoTo << std::endl;} while(0)
+#define cks(num, ...) do{main_log <<__FUNCTION__ << ": ";check##num(__VA_ARGS__) main_log << std::endl;}while(0)
+#define ck(x) do{main_log <<__FUNCTION__ << ": ";check1(x) main_log << std::endl;} while(0)
 
-#define checkint1(x) putInfoTo << #x << "=" << x << "    ";if(x==-1){Error("INVALID PARAMETER");}
+#define checkint1(x) main_log << #x << "=" << x << "    ";if(x==-1){Error("INVALID PARAMETER");}
 #define checkint2(x, y) checkint1(x)checkint1(y)
 #define checkint3(x, y, z) checkint2(x,y)checkint1(z)
 #define checkint4(x, y, z, a) checkint3(x,y,z)checkint1(a)
-#define ckints(num, ...) do{checkint##num(__VA_ARGS__) putInfoTo << std::endl;}while(0)
-#define ckint(x) do{checkint1(x) putInfoTo << std::endl;} while(0)
+#define ckints(num, ...) do{checkint##num(__VA_ARGS__) main_log << std::endl;}while(0)
+#define ckint(x) do{checkint1(x) main_log << std::endl;} while(0)
 
 
 
@@ -71,11 +68,13 @@ clock_t tClockTimer = clock();
 #define ResetClock *functionToBeTimed += clock() - tClockTimer;tClockTimer = clock();functionToBeTimed = &time_recorder[__FUNCTION__];++function_called_num[__FUNCTION__]
 #define DisplayClock for(auto [functionName, timeSpend]:time_recorder) main_log << BLUE << string("                      " ).replace(0,string(functionName).length(),functionName) << "\t\ttime: " << timeSpend << "   \t\thitnumber: " << function_called_num[functionName] << "\t\taverage time: " << timeSpend/function_called_num[functionName] << std::endl
 #define StartStopWatch auto functimer = [&](){ResetClock
-#define EndStopWatch };functimer()
+#define EndStopWatch };functimer();ResetClock
+//完全可以再写一套，不借助函数，这样就可以摆脱定义域的束缚了。不过先不写，不用吃饱了撑。
 #else
 #define ResetClock
 #define DisplayClock
 #endif
+//TODO 写一个东西，测文件读写次数/bpt访问次数
 
 //-----------------------------------------------LOG
 inline void log() {

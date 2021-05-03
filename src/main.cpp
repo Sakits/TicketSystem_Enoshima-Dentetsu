@@ -323,9 +323,9 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
         Error("NUM OF '|' DOES NOT MATCH");
     }
 
-    existTrains.insert({trainID, Train(stationNum, station_s, seatNum, price_s, startTime, travelTime_s, stopoverTime_s,
-                                       saleDate_s, type)});
-
+    if(!existTrains.insert({trainID, Train(stationNum, station_s, seatNum, price_s, startTime, travelTime_s, stopoverTime_s,
+                                       saleDate_s, type)}))Error("TRAIN ALREADY EXIST!");
+    Return(0);
 }
 
 TrainPtr getTrainPtr(TrainID trainID) {
@@ -369,7 +369,7 @@ void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     for (int i = 0; i < train.stationNum; ++i) {
         Return(train.stations[i]+" "+std::string(FullDate(startingMonthDate, train.startTime) += train
                 .arrivingTimes[i]) + " -> " + std::string(FullDate(startingMonthDate, train.startTime) += train
-                .leavingTimes[i]) + " " + ((i!=train.stationNum)?to_string(train.prices[i]): "x"));
+                .leavingTimes[i]) + " " + ((i!=train.stationNum) ? to_string(train.priceSumSinceStart[i]) : "x"));
     }
 }
 
@@ -387,13 +387,13 @@ void train::query_ticket(StationName fromStation, StationName toStation, MonthDa
 
 //    findTrainsArrivingCertainStation(fromStation, monthDateWhenStartFromfromStation);
 //    findTrainsArrivingCertainStation(toStation, monthDateWhenStartFromfromStation);
+
 }
 
 void train::query_transfer(StationName fromStation, StationName toStation, MonthDate monthDateWhenStartFromfromStation,
                            TwoChoice sortFromLowerToHigherBy) {
     ResetClock;
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
-
 
 }
 
@@ -405,9 +405,9 @@ void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, 
     ckint(buyTicketNum);
     AssureLogin(username);
     TrainPtr trainPtr = getTrainPtr(trainID);
-//    Train
+//    Todo
 
-
+    Return(0);
 }
 
 void train::query_order(Username username) {
