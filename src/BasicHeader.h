@@ -237,7 +237,7 @@ typedef cStringType<21> Username;
 typedef cStringType<31> Password;
 typedef cStringType<25> Name;
 typedef cStringType<33> MailAddr;
-typedef int Privilege;
+typedef int Privilege, OrderNumth;
 
 struct User;
 
@@ -261,12 +261,14 @@ struct User {
 };//hack 坚持使用cStringType, rawuser 是否就不需要了？
 
 InnerUniqueUnorderMap<Username, Privilege, std::hash<std::string>> loginUsers;
+InnerUniqueUnorderMap<Username, OrderNumth, std::hash<std::string>> loginUserOrders;
+//better 订单可以放在内存里，等logout或者exit时写回去吗？那样就要有通知补票的机制，怎么补呢？对于有保证login的操作，都可以如此做吗？
 OuterUniqueUnorderMap<Username, User, std::hash<std::string>> existUsers;
 
 
 typedef cStringType<22> TrainID;
-typedef int StationNum, SeatNum, TicketNum, OrderNumth;
-typedef int ArrivingTime, LeavingTime;
+typedef int StationNum, SeatNum, TicketNum;
+typedef int PassedMinutes;
 typedef int Price;
 typedef cStringType<44> StationName;
 typedef HourMinute StartTime;
@@ -283,8 +285,8 @@ struct Train {
     SeatNum seatNum;
     Price priceSumSinceStart[STATIONMAX];
     StartTime startTime;
-    ArrivingTime arrivingTimes[STATIONMAX] = {0};
-    LeavingTime leavingTimes[STATIONMAX] = {0};//FIXME 应该是直接算出每站的绝对时间
+    PassedMinutes arrivingTimes[STATIONMAX] = {0};
+    PassedMinutes leavingTimes[STATIONMAX] = {0};//FIXME 应该是直接算出每站的绝对时间
     SaleDate startSaleDate, endSaleDate;
     Type type;
     TicketNum ticketNums[DAYMAX][STATIONMAX] = {0};
@@ -292,7 +294,7 @@ struct Train {
 
     Train(StationNum _stationNum, const sjtu::vector<StationName> &_stations, SeatNum _seatNum,
           const sjtu::vector<Price> &_prices, const StartTime &_startTime,
-          const sjtu::vector<ArrivingTime> &_arrivingTimes, const sjtu::vector<LeavingTime> &_leavingTimes,
+          const sjtu::vector<PassedMinutes> &_arrivingTimes, const sjtu::vector<PassedMinutes> &_leavingTimes,
           const sjtu::vector<SaleDate> &_saleDate, const Type &_type) : stationNum(_stationNum), seatNum(_seatNum),
                                                                         startTime(_startTime), type(_type) {
         for (int i = 0; i < stationNum; ++i) stations[i] = _stations[i];
@@ -315,10 +317,20 @@ struct Train {
 OuterUniqueUnorderMap<TrainID, Train, std::hash<string>> existTrains;
 typedef OuterUniqueUnorderMap<TrainID, Train, std::hash<string>>::Iterator TrainPtr;
 
-struct Tickets {
 
+typedef cStringType<10>Status;
+struct Order{
+    OrderNumth markth;
+    Status status;
+    
+    TrainID trainID;
+    StationName from;
+    FullDate arrivingTime;
+    StationName to;
+    FullDate leavingTime;
+    Price price;
+    int num;
 };
-
 
 struct UserOrders {
     void buy_ticket() {}
@@ -328,9 +340,19 @@ struct UserOrders {
     void query_order() {}
 };
 
-struct WaitingQueue {
-
+struct LoginUserInfo : std::pair<OrderNumth, Privilege>{
+    OrderNumth& orderNumth = first;
+    Privilege & privilege = second;
+    using std::pair<int,int>::pair;
 };
 
-//    releaseTrain
+
+
+//queue开局加载，关闭放回
+//existUsers开局加载，关闭放回
+
+//对类的成员广播，让它们同意做什么，是可以的，只要有个地方持有所有类成员的指针就可以了。不过没必要
+
+//todo User 的 orderTotalNum 放在exist和login里面好了
+
 #endif //TRAINTICKET_BASICHEADER_H

@@ -152,7 +152,8 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
     getline(cin, input);
     input.erase(0, input.find_first_not_of(" "));
     input.erase(input.find_last_not_of(" ") + 1);
-    if (cin.eof()) exit(0);
+//    if (cin.eof()) exit(0);
+    //maybe 不知道有没有eof自动关闭的机制，先认为没有，因为可能没有buy返回值，但又要动态放回。
     if (input == "") return;
     Info(input);
     //FIXME 这里不用每次都解析正则，改成static，或许是有很微小的优化空间的
@@ -384,6 +385,7 @@ void train::query_ticket(StationName fromStation, StationName toStation, MonthDa
                          TwoChoice sortFromLowerToHigherBy) {
     ResetClock;
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
+    if(sortFromLowerToHigherBy == "")sortFromLowerToHigherBy = "time";
 
 //    findTrainsArrivingCertainStation(fromStation, monthDateWhenStartFromfromStation);
 //    findTrainsArrivingCertainStation(toStation, monthDateWhenStartFromfromStation);
@@ -403,6 +405,7 @@ void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, 
     ResetClock;
     cks(5, username, trainID, monthDate, fromStation, toStation);
     ckint(buyTicketNum);
+    if(wannaWaitToBuyIfNoEnoughTicket == "") wannaWaitToBuyIfNoEnoughTicket = "false";
     AssureLogin(username);
     TrainPtr trainPtr = getTrainPtr(trainID);
 //    Todo
@@ -422,6 +425,7 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ResetClock;
     ck(username);
     ckint(orderNumth);
+    if(orderNumth == -1) orderNumth = 1;
     AssureLogin(username);
 
 }

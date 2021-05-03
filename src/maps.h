@@ -82,5 +82,40 @@ private:
 };
 
 
+//recommend to implement by a list
+//singleton pattern
+template<class T>
+struct Queue {
+    struct Iterator{
+        Iterator& operator++(){}
+        Iterator operator++(int) {//I promise that while using ++ and * and ->, won't use erase and pushfront.
+            Iterator ret = *this;
+            ++*this;
+            return ret;
+        }
+        T& operator*(){
+
+        }
+        T* operator->() const noexcept {
+            return &**this;
+        }
+    };
+    void push_front(T t){//push to the place where begin() is pointing to.
+
+    }
+    Iterator erase(Iterator){//return Iterator to next element, where ++Iterator go to the same element.
+
+    }
+
+    Iterator begin(){//pointing to most recent push_front element
+
+    }
+    Iterator end(){
+
+    }
+    void readFromFile(){
+    }
+    void writeToFile(){}
+};
 
 #endif //MAIN_CPP_MAPS_H
