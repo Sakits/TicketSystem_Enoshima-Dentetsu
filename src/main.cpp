@@ -149,7 +149,7 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
             rule_clean("^clean"),
             rule_exit("^exit");
 
-    getline(cin, input);
+    getline(std::cin, input);
     input.erase(0, input.find_first_not_of(" "));
     input.erase(input.find_last_not_of(" ") + 1);
 //    if (cin.eof()) exit(0);
@@ -365,8 +365,6 @@ void train::release_train(TrainID trainID) {
 for (int i = 0; i < train.stationNum; ++i)
     addPassedTrain(train.stations[i],trainID);
 
-    informQueue(trainID);
-
     Return(0);
 }
 
@@ -383,7 +381,7 @@ void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     for (int i = 0; i < train.stationNum; ++i) {
         Return(train.stations[i] + " " + std::string(FullDate(startingMonthDate, train.startTime) += train
                 .arrivingTimes[i]) + " -> " + std::string(FullDate(startingMonthDate, train.startTime) += train
-                .leavingTimes[i]) + " " + to_string(train.prices[i]) + " " + ((i != train.stationNum) ? to_string(train.ticketNums[startingMonthDate][i]) : "x"));
+                .leavingTimes[i]) + " " + std::to_string(train.prices[i]) + " " + ((i != train.stationNum) ? std::to_string(train.ticketNums[startingMonthDate][i]) : "x"));
     }
 }
 
@@ -422,7 +420,7 @@ void train::query_ticket(StationName fromStation, StationName toStation, MonthDa
         for(int i = fromint; i < toint; ++i){
             minTicket = std::min(minTicket, trainOfThisDate[i]);
         }
-        ans += (trainID + " " + fromStation + " " + std::string(FullDate(trainStartDay, train.startTime) += leavingTime) + " -> " + toStation + " " + std::string(FullDate(trainStartDay, train.startTime) += arrivingTime) + " " + to_string(totalPrice) + " " + std::to_string(minTicket));
+        ans += (trainID + " " + fromStation + " " + std::string(FullDate(trainStartDay, train.startTime) += leavingTime) + " -> " + toStation + " " + std::string(FullDate(trainStartDay, train.startTime) += arrivingTime) + " " + std::to_string(totalPrice) + " " + std::to_string(minTicket));
         vans.push_back({(sortFromLowerToHigherBy=="time")?totalTime:totalPrice,ans});
     }
     //stub 对vector由低到高排序
@@ -452,6 +450,7 @@ void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, 
 
     auto trainPtr = getTrainPtr(trainID);//get information to make ->first
     Train train = existTrains.getItem(trainPtr);
+    if(!train.is_released) Error("TRAIN HAS NOT BEEN RELEASED YET");
     if (train.endSaleDate < monthDate || monthDate < train.startSaleDate) Error("OUT OF SALEDATE");
     const int buyday = monthDate - train.startSaleDate;
     int fromindex = train.findStation(fromStation);
@@ -502,7 +501,7 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     if (!loginUserData)Error("USER DOES NOT LOGIN");
     const auto &orderIterPair = userOrders.find(
             {username, loginUserData->first - orderNumth + 1});//删掉assert可以压变量名，不过我先这么写了，为了保险，之后再压
-    assert(orderIterPair.second);
+    if(!orderIterPair.second)Error("WRONG ORDERNUMTH");
     const auto &orderIter = orderIterPair.first;
     Order order = userOrders.getItem(orderIter);
     if (order.status == "refunded")Error("ALREADY REFUNDED");
@@ -531,6 +530,7 @@ void sys::noReturnClean() {
     cleanlog();
     existUsers.clear();
     loginUsers.clear();
+    waitQueue.clear();
 }
 
 void sys::clean() {

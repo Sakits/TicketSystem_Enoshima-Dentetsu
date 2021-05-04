@@ -114,9 +114,9 @@ void Return(T thing){
     ss << thing;
     mystr = ss.str();
     if(mystr!=ansstr){
-        main_log << RED  << "FAIL " << mystr << END << std::endl;
-        main_log << RED  << "ANS= " << ansstr << END << std::endl << CUT;
-        std::cout << RED << "DIFFERENT ANSWER\n" << "ANSWER IS: " << ansstr << "\nIWRONG IS: " << mystr << std::endl;
+        main_log << RED  << "IWRONG IS: " << mystr << END << std::endl;
+        main_log << RED  << "ANSWER IS: " << ansstr << END << std::endl << CUT;
+//        std::cout << RED << "DIFFERENT ANSWER\n" << "ANSWER IS: " << ansstr << "\nIWRONG IS: " << mystr << std::endl;
         log();
         std::exit(0);
     }

@@ -8,26 +8,25 @@
 #include <string>
 #include <fstream>
 #include <cassert>
-using namespace std;
 
-typedef string FileName;
+typedef std::string FileName;
 typedef int Address;
 
 inline void fcreate(FileName fn){//OK to not to use ios::binary
-    ifstream fin(fn);
+    std::ifstream fin(fn);
     if (fin) {
         fin.close();
         return;
     }
-    ofstream fooo(fn);
+    std::ofstream fooo(fn);
     assert(fooo);
     fooo.close();
 }
 
 inline void fclear(FileName fn){
-    ofstream fileout(fn,ios::trunc);
+    std::ofstream fileout(fn,std::ios::trunc);
     if(!fileout){
-        cout << "Create file failure...\n";
+        std::cout << "Create file failure...\n";
         exit(0);
     }
     fileout.close();
@@ -38,12 +37,12 @@ inline void fclear(FileName fn){
 #define closefile file.close();
 
 template <class T>
-void fwrite(ostream &_file, const T &t) {
+void fwrite(std::ostream &_file, const T &t) {
     _file.write(reinterpret_cast<const char *>(&t), sizeof(t));
 }
 
 template <class T>
-void fread(istream &_file, T &t) {
+void fread(std::istream &_file, T &t) {
     _file.read(reinterpret_cast<char *>(&t), sizeof(t));
 }
 

@@ -7,6 +7,8 @@
 
 //stub
 #include <unordered_map>
+#include "vector.hpp"
+#include "filemanip.h"
 
 template<class Key, class Value, class Hash>
 class OuterUniqueUnorderMap {
@@ -28,8 +30,8 @@ public:
 
     std::pair<Iterator, bool> find(Key key) {
         auto f = mapper.find(key);
-        if(f==mapper.end()) return {mapper.end(),0};
-        return {f,true};
+        if (f == mapper.end()) return {mapper.end(), 0};
+        return {f, true};
     }
 
     Value getItem(Iterator iter) {
@@ -47,6 +49,58 @@ public:
     void clear() {
         mapper.clear();
     }
+
+private:
+    std::unordered_map<Key, Value, Hash> mapper;
+};
+
+
+template<class Key, class Value, class Hash>
+class OuterMultiUnorderMap {
+public:
+
+    void insert(const std::pair<Key, Value> &pair) {
+        return mapper.insert(pair).second;
+    }
+
+    bool erase(const Key &key) {
+        return mapper.erase(key);
+    }
+
+
+//    struct Iterator {
+//    };
+
+    typedef typename std::unordered_map<Key, Value, Hash>::iterator Iterator;
+
+    std::pair<Iterator, bool> find(Key key, int n) {//找到第n新插入的东西。
+        auto f = mapper.find(key);
+        if (f == mapper.end()) return {mapper.end(), 0};
+        return {f, true};
+    }
+
+
+    sjtu::vector<Value> find(Key key) {
+
+    };
+    //问题：该iterator在实现的时候能够被持有吗？
+
+    Value getItem(Iterator iter) {
+        return iter->second;
+    }
+
+    void setItem(Iterator iter, Value value) {
+        iter->second = value;
+    }
+
+    bool empty() const {
+        return mapper.empty();
+    }
+
+    void clear() {
+        mapper.clear();
+    }
+
 private:
     std::unordered_map<Key, Value, Hash> mapper;
 };
@@ -61,12 +115,12 @@ public:
         return mapper.insert(pair).second;
     }
 
-    std::pair<Value,bool> erase(const Key &key) {
+    std::pair<Value, bool> erase(const Key &key) {
         auto iter = mapper.find(key);
-        if (iter == mapper.end()) return {Value(),0};
+        if (iter == mapper.end()) return {Value(), 0};
         Value v = iter->second;
         mapper.erase(iter);
-        return {v,1};
+        return {v, 1};
     }
 
     bool empty() const {
@@ -79,7 +133,7 @@ public:
 
     Value *find(Key key) {
         auto f = mapper.find(key);
-        if(f==mapper.end()) return nullptr;
+        if (f == mapper.end()) return nullptr;
         return &(f->second);
     }
 
@@ -93,41 +147,69 @@ private:
 //bug
 template<class T>
 struct Queue {
+    FileName fileName;
+
     struct Node {
         T t;
-        Node* n = nullptr;
-        Node* p = nullptr;
-        Node(){}
-        Node(T t, Node *n) : t(t), n(n) {}
-    }*root = nullptr;
-    Queue(){}
-    ~Queue(){
-        while(root){
-            Node * nextroot = root->n;
+        Node *n = nullptr;
+        Node *p = nullptr;
+
+        Node() {}
+
+        Node(T t, Node *n, Node *p) : t(t), n(n), p(p) {}
+    } ;
+    Node *root = nullptr;
+
+    Queue(FileName fileName) : fileName(fileName) {
+        fcreate(fileName);
+        std::ifstream file(fileName, std::ios::in | std::ios::binary);
+        assert(file);
+        T t;
+        root = new Node();
+        Node *constructor = root;
+        while (file) {
+            fread(file, t);
+            if(file)
+            constructor = constructor->n = new Node(t, nullptr, constructor);
+        }
+        file.close();
+    }
+
+    ~Queue() {
+        fclear(fileName);
+        std::ofstream file(fileName, std::ios::out | std::ios::binary);
+        assert(file);
+        while (root) {
+            Node *nextroot = root->n;
+            if (nextroot) fwrite(file, nextroot->t);
             delete root;
             root = nextroot;
         }
+        file.close();
     }
 
 
-    struct Iterator{
-        Node* ptr;
+    struct Iterator {
+        Node *ptr;
 
         Iterator(Node *ptr) : ptr(ptr) {}
 
-        Iterator& operator++(){
+        Iterator &operator++() {
             ptr = ptr->n;
             return *this;
         }
+
         Iterator operator++(int) {//I promise that while using ++ and * and ->, won't use erase and pushfront.
             Iterator ret = *this;
             ++*this;
             return ret;
         }
-        T& operator*(){
+
+        T &operator*() {
             return ptr->t;
         }
-        T* operator->() const noexcept {
+
+        T *operator->() const noexcept {
             return &**this;
         }
 
@@ -140,31 +222,40 @@ struct Queue {
         }
     };
 
-    void push_front(T t){//push to the place where begin() is pointing to.
-        root = new Node(t, root);
-        if(root->n)root->n->p = root;
-    }
-    Iterator erase(Iterator iter){//return Iterator to prev element, where --Iterator go to the same element.
-        Node* tmp = iter.ptr;
-        if(tmp->p)tmp->p->n = tmp->n;
-        if(tmp->n)tmp->n->p = tmp->p;
-        Node* ret = tmp->p;//bug
-        delete tmp;
-        return ret;
-    }
-    Iterator begin(){
-        return root;
+    void push_front(T t) {//push to the place where begin() is pointing to.
+        root->n = new Node(t, root->n, root);
+        if (root->n->n)root->n->n->p = root->n;
     }
 
-    Iterator end(){
+    void erase(Iterator &iter) {//return Iterator to next element, where ++Iterator go to the same element.
+        Node *tmp = iter.ptr;
+        tmp->p->n = tmp->n;
+        if (tmp->n)
+            tmp->n->p = tmp->p;
+        Node *ret = tmp->p;//bug
+        delete tmp;
+        iter.ptr = ret;
+    }
+
+    Iterator begin() {
+        return root->n;
+    }
+
+    Iterator end() {
         return nullptr;
     }
 
-    void readFromFile(){
+    void clear(){
+        Node * tmp = root->n;
+        while (tmp) {
+            Node *nexttmp = tmp->n;
+            delete tmp;
+            tmp = nexttmp;
+        }
+        root->n = nullptr;
+        fclear(fileName);
     }
-    void writeToFile(){}
 };
-
 
 
 #endif //MAIN_CPP_MAPS_H

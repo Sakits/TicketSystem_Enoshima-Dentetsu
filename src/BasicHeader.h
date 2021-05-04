@@ -95,7 +95,7 @@ public:
         return !(*this < rhs);
     }
 
-    friend ostream &operator<<(ostream &os, const cStringType &type) {
+    friend std::ostream &operator<<(std::ostream &os, const cStringType &type) {
         os << type.c;
         return os;
     }
@@ -105,7 +105,7 @@ public:
         return std::string(*this) + t;
     }
 
-    friend std::string operator+(string s, cStringType<N> t) {
+    friend std::string operator+(std::string s, cStringType<N> t) {
         return s + std::string(t);
     }
 };
@@ -139,7 +139,7 @@ struct HourMinute {
         return overflow;//better 取模是否可优化？
     }
 
-    friend ostream &operator<<(ostream &os, const HourMinute &hourMinute) {
+    friend std::ostream &operator<<(std::ostream &os, const HourMinute &hourMinute) {
         os << ((hourMinute.hour < 10) ? "0" : "") << hourMinute.hour << ":" << ((hourMinute.minute < 10) ? "0" : "")
            << hourMinute.minute;
         return os;
@@ -152,7 +152,7 @@ struct MonthDate {
 
     void testvaild() const {if(month < 6 || month > 8 || date < 0 || date > 31)
         {
-        cout << std::string(*this) << endl;
+        std::cout << std::string(*this) << std::endl;
         throw ("sss");
         }
     }
@@ -213,7 +213,7 @@ struct MonthDate {
         return str;
     }
 
-    friend ostream &operator<<(ostream &os, const MonthDate &date) {
+    friend std::ostream &operator<<(std::ostream &os, const MonthDate &date) {
         os << std::string(date);
         return os;
     }
@@ -236,7 +236,7 @@ struct FullDate {
         return std::string(monthDate) + " " + std::string(hourMinute);
     }
 
-    friend ostream &operator<<(ostream &os, const FullDate &date) {
+    friend std::ostream &operator<<(std::ostream &os, const FullDate &date) {
         os << std::string(date);
         return os;
     }
@@ -340,7 +340,7 @@ struct Train {
 };
 
 
-OuterUniqueUnorderMap<TrainID, Train, std::hash<string>> existTrains;
+OuterUniqueUnorderMap<TrainID, Train, std::hash<std::string>> existTrains;
 
 typedef cStringType<10>Status;
 
@@ -367,22 +367,22 @@ struct Order{
 };
 //stub
 #include <set>
-std::unordered_map<StationName, set<TrainID>, std::hash<std::string>> stmap;
+std::unordered_map<StationName, std::set<TrainID>, std::hash<std::string>> stmap;
 void addPassedTrain(StationName stationName, TrainID trainID){
     //stub
     stmap[stationName].insert(trainID);
 }
 
-set<TrainID> findCommonTrain(StationName fromStation, StationName toStation){
+std::set<TrainID> findCommonTrain(StationName fromStation, StationName toStation){
     //stub
     auto iter_s = stmap.find(fromStation);
-    if(iter_s == stmap.end()) return set<TrainID>();
+    if(iter_s == stmap.end()) return std::set<TrainID>();
     auto iter_t = stmap.find(toStation);
-    if(iter_t == stmap.end()) return set<TrainID>();
+    if(iter_t == stmap.end()) return std::set<TrainID>();
     auto it_i = iter_s->second;
     auto it_j = iter_t->second;
     auto j = it_j.begin();
-    set<TrainID> ret;
+    std::set<TrainID> ret;
     for (auto i = it_i.begin(); i != it_i.end();++i){
         for(;*j < *i;++j)
             if(j == it_j.end()) goto BREAK;
@@ -405,13 +405,15 @@ OuterUniqueUnorderMap<UserOrder,Order,HashUserOrder> userOrders;
 //FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.
 
 
-Queue<Order> waitQueue;
+Queue<Order> waitQueue("wait_queue.dat");
 
-void informQueue(TrainID trainID){
+void informQueue(TrainID trainID, FullDate arrivingTime, FullDate leavingTime){
 
 }
 
-void informQueue(TrainID trainID, FullDate arrivingTime, FullDate leavingTime){
+//被informQueue调用。。。，或者被其返回的东西调用
+//better 只要钻入,把两个函数的地方变成一个函数，就可以取消用sjtu::vector传信息的消耗了
+void orderPendingChangeToSuccess(Order order){
 
 }
 
