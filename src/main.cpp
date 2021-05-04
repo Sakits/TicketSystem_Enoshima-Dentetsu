@@ -124,7 +124,7 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
             type = " ([A-Z])";
     static const std::regex
             _i(" -i" + trainID),
-            _n(" -n" + stationNum), _num(" -n (\\%d+)"),
+            _n(" -n" + stationNum), _num(" -n (\\d+)"),
             _startPlace(" -s" + station),
             _fromPlace(" -f" + station), _toPlace(" -t" + station), _ss(" -s" + pluralStrMaker(station)),
             _m(" -m" + seatNum),
@@ -209,7 +209,7 @@ void user::add_user(Username cur_username, Username username, Password password,
     if (!existUsers.empty()) {//这里把它的语义改了下，不过应该无伤大雅，本来要判的是isFirstUser()的
         ck(cur_username);
         ckint(privilege);
-        Privilege curPrivilege = *(loginUsers.find(cur_username));
+        Privilege curPrivilege = loginUsers.find(cur_username)->second;
         if (curPrivilege == -1)Error("CURRENT USER DOES NOT LOGIN");
         if (privilege >= curPrivilege)Error("NO PRIVILEGE");
 //        if (password.size() < 6)Error("PASSWORD IS TOO SHORT");
@@ -229,15 +229,22 @@ void user::login(Username username, Password password) {
     if (!CurUserPair.second) Error("USER DOES NOT EXIST");
     const User &foundUser = existUsers.getItem(CurUserPair.first);
     if (foundUser.password != password) Error("WRONG PASSWORD");
-    if (!loginUsers.insert({username, foundUser.privilege}))Error("USER HAS ALREADY LOGIN");
+    if (!loginUsers.insert({username, {foundUser.orderNumth, foundUser.privilege}}))Error("USER HAS ALREADY LOGIN");
     Return(0);
-
 }
+//buyticket只改变loginUser的orderNumth，在logout或exit的时候才写回所有orderNumth。这可以在每次buyticket都节约一次写existUser的时间。
 
 void user::logout(Username username) {
     ResetClock;
     ck(username);
-    if (!loginUsers.erase(username))Error("CURRENT USER DOES NOT LOGIN");
+    auto erasePair = loginUsers.erase(username);
+    if (!erasePair.second)Error("CURRENT USER DOES NOT LOGIN");//erase in loginUsers
+
+    auto iter = existUsers.find(username).first;//change existUsers.user.orderNumth
+    User user = existUsers.getItem(iter);
+    user.orderNumth = erasePair.first.first;
+    existUsers.setItem(iter, user);
+
     Return(0);
 
 }
@@ -251,7 +258,7 @@ void user::query_profile(Username cur_username, Username username) {
     auto UserPair = existUsers.find(username);
     if (!UserPair.second) Error("FINDING USER DOES NOT EXIST");
     const User &foundUser = existUsers.getItem(UserPair.first);
-    Privilege &curPrivilege = *curUserPtr;
+    Privilege &curPrivilege = curUserPtr->second;
     if (!(curPrivilege > foundUser.privilege || cur_username == username)) Error("NO PRIVILEGE");
     Return(username + ' ' + foundUser.name + ' ' + foundUser.mailAddr + ' ' +
            std::to_string(foundUser.privilege));
@@ -264,7 +271,7 @@ void user::modify_profile(Username cur_username, Username username, Password pas
     cks(2, cur_username, username);
     auto curUserPtr = loginUsers.find(cur_username);
     if (!curUserPtr) Error("CURRENT USER DOES NOT LOGIN");
-    Privilege curPrivilege = (cur_username == username) ? -2 : *curUserPtr;//-2表示解禁，小于任何权限
+    Privilege curPrivilege = (cur_username == username) ? -2 : curUserPtr->second;//-2表示解禁，小于任何权限
 
     auto ptr = existUsers.find(username);
     if (!ptr.second) Error("FINDING USER DOES NOT EXIST");
@@ -278,7 +285,7 @@ void user::modify_profile(Username cur_username, Username username, Password pas
     if (privilege != -1) {
         auto ptr = loginUsers.find(username);
         if (ptr)
-            *ptr = privilege;//better 可改完上面后更短
+            ptr->second = privilege;//better 可改完上面后更短
     }
     Return(username + ' ' + changedUser.name + ' ' + changedUser.mailAddr + ' ' +
            std::to_string(changedUser.privilege));//显然应该以她现在的名字返回啊
@@ -315,24 +322,30 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
         type);
     ckints(2, stationNum, seatNum);
     sjtu::vector<StationName> station_s = words_spliter<StationName>(stations);
-    sjtu::vector<ArrivingTime> travelTime_s = ints_spliter(travelTimes);
-    sjtu::vector<LeavingTime> stopoverTime_s = ints_spliter(stopoverTimes);
+    sjtu::vector<PassedMinutes> travelTime_s = ints_spliter(travelTimes);
+    sjtu::vector<PassedMinutes> stopoverTime_s = ints_spliter(stopoverTimes);
     sjtu::vector<Price> price_s = ints_spliter(prices);
-    sjtu::vector<SaleDate> saleDate_s = words_spliter<SaleDate>(saleDates);
+    sjtu::vector<MonthDate> saleDate_s = words_spliter<MonthDate>(saleDates);
     if (!(station_s.size() == stationNum && price_s.size() == stationNum - 1 && travelTime_s.size() == stationNum - 1
           && stopoverTime_s.size() == std::max(1, stationNum - 2))) {
         Error("NUM OF '|' DOES NOT MATCH");
     }
 
-    if(!existTrains.insert({trainID, Train(stationNum, station_s, seatNum, price_s, startTime, travelTime_s, stopoverTime_s,
-                                       saleDate_s, type)}))Error("TRAIN ALREADY EXIST!");
+    if (!existTrains.insert(
+            {trainID, Train(stationNum, station_s, seatNum, price_s, startTime, travelTime_s, stopoverTime_s,
+                            saleDate_s, type)}))
+        Error("TRAIN ALREADY EXIST!");
     Return(0);
 }
 
-TrainPtr getTrainPtr(TrainID trainID) {
+auto getTrainPtr(TrainID trainID) {
     auto curTrainPair = existTrains.find(trainID);
     if (!curTrainPair.second) Error("FINDING TRAIN DOES NOT EXIST");
     return curTrainPair.first;
+}
+
+Train getTrain(TrainID trainID){
+    return existTrains.getItem(getTrainPtr(trainID));
 }
 
 void AssureLogin(Username username) {
@@ -340,56 +353,84 @@ void AssureLogin(Username username) {
 }
 
 void train::release_train(TrainID trainID) {
-       ResetClock;
-       ck(trainID);
-       TrainPtr trainPtr = getTrainPtr(trainID);
-       Train train = existTrains.getItem(trainPtr);
-       if(train.is_released == 1)Error("TRAIN HAS ALREADY BE RELEASED");
-       train.is_released = 1;
-       int duration = train.endSaleDate - train.startSaleDate + 1;
-       for(int i = 0; i < train.stationNum - 1; ++i)
-           for (int j = 0; j < duration; ++j)
-               train.ticketNums[i][j] = train.seatNum;
-       existTrains.setItem(trainPtr, train);
+    ResetClock;
+    ck(trainID);
+    auto trainPtr = getTrainPtr(trainID);
+    Train train = existTrains.getItem(trainPtr);
+    if (train.is_released == 1)Error("TRAIN HAS ALREADY BE RELEASED");
+    train.is_released = 1;
+    existTrains.setItem(trainPtr, train);
 
-//    train.stations...
-//    stations.setbit(...);//setaccording to stations
-    //TODO
+//stub
+for (int i = 0; i < train.stationNum; ++i)
+    addPassedTrain(train.stations[i],trainID);
+
+    informQueue(trainID);
+
+    Return(0);
 }
 
 void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     ResetClock;
     cks(2, trainID, startingMonthDate);
-    TrainPtr trainPtr = getTrainPtr(trainID);
-    Train train = existTrains.getItem(trainPtr);
-    if(startingMonthDate < train.startSaleDate || startingMonthDate < train.endSaleDate) Error("QUERY DATE NOT IN SALE DATE");
-//FIXME 它好像没说查一个未发车的车是0票还是满票，这里按0票处理
+    Train train = getTrain(trainID);
+    if (startingMonthDate < train.startSaleDate || startingMonthDate < train.endSaleDate)
+        Error("QUERY DATE NOT IN SALE DATE");
+//既然周聪说了，按他说的改 maybe
     std::string ans;
-    Return(trainID+" " +train.type);
+    Return(trainID + " " + train.type);
     //TODO 检验日期是否在内
     for (int i = 0; i < train.stationNum; ++i) {
-        Return(train.stations[i]+" "+std::string(FullDate(startingMonthDate, train.startTime) += train
+        Return(train.stations[i] + " " + std::string(FullDate(startingMonthDate, train.startTime) += train
                 .arrivingTimes[i]) + " -> " + std::string(FullDate(startingMonthDate, train.startTime) += train
-                .leavingTimes[i]) + " " + ((i!=train.stationNum) ? to_string(train.priceSumSinceStart[i]) : "x"));
+                .leavingTimes[i]) + " " + to_string(train.prices[i]) + " " + ((i != train.stationNum) ? to_string(train.ticketNums[startingMonthDate][i]) : "x"));
     }
 }
 
 void train::delete_train(TrainID trainID) {
     ResetClock;
     ck(trainID);
-    if(!existTrains.erase(trainID))Error("DELETE TRAIN DOES NOT EXIST");
+    if (!existTrains.erase(trainID))Error("DELETE TRAIN DOES NOT EXIST");
     Return(0);
 }
 
-void train::query_ticket(StationName fromStation, StationName toStation, MonthDate monthDateWhenStartFromfromStation,
+void train::query_ticket(StationName fromStation, StationName toStation, MonthDate startingMonthDate,
                          TwoChoice sortFromLowerToHigherBy) {
     ResetClock;
-    cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
-    if(sortFromLowerToHigherBy == "")sortFromLowerToHigherBy = "time";
-
-//    findTrainsArrivingCertainStation(fromStation, monthDateWhenStartFromfromStation);
-//    findTrainsArrivingCertainStation(toStation, monthDateWhenStartFromfromStation);
-
+    cks(3, fromStation, toStation, startingMonthDate);
+    if (sortFromLowerToHigherBy == "")sortFromLowerToHigherBy = "time";
+    auto trains = findCommonTrain(fromStation, toStation);
+    //stub in order to use sort in <algorithm>, I use std::vector instead of sjtu::vector
+    std::vector<std::pair<int ,std::string>> vans;
+    for (TrainID trainID : trains){
+        const Train &train = getTrain(trainID);
+        HourMinute startTime = train.startTime;
+        const int fromint = train.findStation(fromStation), toint = train.findStation(toStation);
+        const PassedMinutes  leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];
+        int overflow = (startTime += train.leavingTimes[fromint]);
+        //monthdate - overflow = trainastart day = trainsaleday + [index]
+        // [index] = monthdate - train saleday - overflow
+        int index = int(startingMonthDate) - int(train.startSaleDate) - overflow;
+        if(index < 0 || index >= train.duration) continue;
+        MonthDate md = train.startSaleDate;
+        MonthDate trainStartDay(md += index);
+        auto& trainOfThisDate = train.ticketNums[index];
+        PassedMinutes totalTime = arrivingTime - leavingTime;
+        Price totalPrice = train.prices[toint] - train.prices[fromint];
+        std::string ans;
+        TicketNum minTicket = 0x3f3f3f3f;
+        for(int i = fromint; i < toint; ++i){
+            minTicket = std::min(minTicket, trainOfThisDate[i]);
+        }
+        ans += (trainID + " " + fromStation + " " + std::string(FullDate(trainStartDay, train.startTime) += leavingTime) + " -> " + toStation + " " + std::string(FullDate(trainStartDay, train.startTime) += arrivingTime) + " " + to_string(totalPrice) + " " + std::to_string(minTicket));
+        vans.push_back({(sortFromLowerToHigherBy=="time")?totalTime:totalPrice,ans});
+    }
+    //stub 对vector由低到高排序
+#include <algorithm>
+    sort(vans.begin(), vans.end());
+    Return (vans.size());
+    for (auto i : vans) Return (i.second);
+//TODO
 }
 
 void train::query_transfer(StationName fromStation, StationName toStation, MonthDate monthDateWhenStartFromfromStation,
@@ -397,37 +438,92 @@ void train::query_transfer(StationName fromStation, StationName toStation, Month
     ResetClock;
     cks(3, fromStation, toStation, monthDateWhenStartFromfromStation);
 
+    //TODO
+
 }
 
-void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, TicketNum buyTicketNum,
+void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, TicketNum ticketNum,
                        StationName fromStation,
                        StationName toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
     ResetClock;
     cks(5, username, trainID, monthDate, fromStation, toStation);
-    ckint(buyTicketNum);
-    if(wannaWaitToBuyIfNoEnoughTicket == "") wannaWaitToBuyIfNoEnoughTicket = "false";
-    AssureLogin(username);
-    TrainPtr trainPtr = getTrainPtr(trainID);
-//    Todo
+    ckint(ticketNum);
+    if (wannaWaitToBuyIfNoEnoughTicket == "") wannaWaitToBuyIfNoEnoughTicket = "false";
 
-    Return(0);
+    auto trainPtr = getTrainPtr(trainID);//get information to make ->first
+    Train train = existTrains.getItem(trainPtr);
+    if (train.endSaleDate < monthDate || monthDate < train.startSaleDate) Error("OUT OF SALEDATE");
+    const int buyday = monthDate - train.startSaleDate;
+    int fromindex = train.findStation(fromStation);
+    int toindex = train.findStation(toStation);
+    if (fromindex == -1 || toindex == -1)Error("CANNOT FIND STATION");
+    int *trainOfThisDate = train.ticketNums[buyday];
+    auto iter = loginUsers.find(username);
+    if (!iter)Error("USER DOES NOT LOGIN");
+    OrderNumth markth = ++(iter->first);//1-base, increase user's orderNumth
+
+    Order order(username, "pending",
+                markth, trainID, fromStation, toStation,
+                FullDate(monthDate, train.startTime) += train.leavingTimes[fromindex],
+                FullDate(monthDate, train.startTime) += train.leavingTimes[toindex],
+                train.prices[toindex] - train.prices[fromindex],
+                ticketNum
+    );
+    for (int i = fromindex; i < toindex; ++i) {
+        if (trainOfThisDate[i] < ticketNum) {//no enough ticket
+            if (wannaWaitToBuyIfNoEnoughTicket == "false") Error("NO ENOUGH TICKET");
+            waitQueue.push_front(order);//pending
+            userOrders.insert({{username, markth}, order});
+            Return("queue");
+            return;
+        }
+    }
+    order.status = "success";//success
+    userOrders.insert({{username, markth}, order});
+    for (int i = fromindex; i < toindex; ++i) {
+        trainOfThisDate[i] -= ticketNum;
+    }
+    Return(order.price * ticketNum);
 }
 
 void train::query_order(Username username) {
     ResetClock;
     ck(username);
     AssureLogin(username);
-
-
+    //TODO
 }
 
 void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ResetClock;
     ck(username);
     ckint(orderNumth);
-    if(orderNumth == -1) orderNumth = 1;
-    AssureLogin(username);
+    if (orderNumth == -1) orderNumth = 1;
+    const auto &loginUserData = loginUsers.find(username);
+    if (!loginUserData)Error("USER DOES NOT LOGIN");
+    const auto &orderIterPair = userOrders.find(
+            {username, loginUserData->first - orderNumth + 1});//删掉assert可以压变量名，不过我先这么写了，为了保险，之后再压
+    assert(orderIterPair.second);
+    const auto &orderIter = orderIterPair.first;
+    Order order = userOrders.getItem(orderIter);
+    if (order.status == "refunded")Error("ALREADY REFUNDED");
+    if (order.status == "pending"){
+        order.status = "refunded";// todo 要判是否在队列里，如果在直接炸掉即可。
+        userOrders.setItem(orderIter, order);
+    }
+    order.status = "refunded";// todo 要判是否在队列里，如果在直接炸掉即可。
+    userOrders.setItem(orderIter, order);
+    const TrainID &trainID = order.trainID;
+    const auto trainPtr = getTrainPtr(trainID);
+    Train train = existTrains.getItem(trainPtr);
+    int i = MonthDate(order.arrivingTime) - train.startSaleDate;
+    const int fromint = train.findStation(order.fromStation);
+    const int toint = train.findStation(order.toStation);
+    for (int j = fromint; j <= toint; ++j)
+        train.ticketNums[i][j] += order.num;
+    existTrains.setItem(trainPtr, train);
 
+    informQueue(trainID, order.arrivingTime, order.leavingTime);
+    // queue 可以持有快速访问order的方法，反之亦然。但反之的重要性不那么重要，因为内存queue既短又快。
 }
 
 
@@ -442,12 +538,14 @@ void sys::clean() {
     Return(0);
 }
 
+void cache_putback() {
+    //TODO use loginUser.ordernumth to write existUsers.ordernumth
+}
+
 void sys::exit() {
     Return("bye");
     log();//FIXME to debug
+    cache_putback();
     std::exit(0);
 }
 
-//FIXME1.重构log文件结构
-//FIXME2.wrapp unwrap函数
-//FIXME3.更提出map类

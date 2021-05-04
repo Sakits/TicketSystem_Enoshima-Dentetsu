@@ -52,6 +52,7 @@ public:
         for (size_t i = 0; i < sz; ++i) {
             c[i] = _c[i];
         }
+        return *this;
     }
 
     operator std::string() const {
@@ -121,11 +122,11 @@ struct HourMinute {
     operator std::string() const {
         if (hour == -1) return "xx:xx";
         std::string str;
-        if (hour < 10)str += '0';
-        str += ('0' + hour);
+        str += ('0' + hour/10);
+        str += ('0' + (hour -hour/10 * 10));
         str += ':';
-        if (minute < 10) str += '0';
-        str += ('0' + minute);
+        str += ('0' + minute/10);
+        str += ('0' + (minute - minute/10 * 10));
         return str;
     }
 
@@ -144,16 +145,23 @@ struct HourMinute {
         return os;
     }
 };
-
+struct FullDate;
 struct MonthDate {
     int month = 0;
     int date = 0;
 
-    void testvaild() const { assert(month < 6 || month > 8 || date < 0 || date > 31); }
+    void testvaild() const {if(month < 6 || month > 8 || date < 0 || date > 31)
+        {
+        cout << std::string(*this) << endl;
+        throw ("sss");
+        }
+    }
 
     MonthDate() {}
 
     MonthDate(int month, int date) : month(month), date(date) { testvaild(); }
+
+    MonthDate(FullDate);
 
     MonthDate(std::string str) : month(str[1] - '0'), date((str[3] - '0') * 10 + str[4] - '0') {}
 
@@ -171,6 +179,7 @@ struct MonthDate {
         while (x--)++*this;
         return *this;
     }
+
 
     operator int() const {
         testvaild();
@@ -196,11 +205,11 @@ struct MonthDate {
     operator std::string() const {
         if (month == 0) return "xx-xx";
         std::string str;
-        str += '0';
-        str += ('0' + month);
+        str += ('0' + month/10);
+        str += ('0' + (month -month/10 * 10));
         str += '-';
-        if (date < 10) str += '0';
-        str += ('0' + date);
+        str += ('0' + date/10);
+        str += ('0' + (date - date/10 * 10));
         return str;
     }
 
@@ -214,6 +223,7 @@ struct FullDate {
     MonthDate monthDate;
     HourMinute hourMinute;
 
+    FullDate(){}
     FullDate(const MonthDate &monthDate, const HourMinute &hourMinute) : monthDate(monthDate), hourMinute(hourMinute) {}
 
     FullDate &operator+=(int x) {
@@ -231,7 +241,16 @@ struct FullDate {
         return os;
     }
 
+//    operator MonthDate(){
+//        return monthDate;
+//    }
+
 };
+
+MonthDate::MonthDate(FullDate fullDate){
+    month = fullDate.monthDate.month;
+    date = fullDate.monthDate.date;
+}
 
 typedef cStringType<21> Username;
 typedef cStringType<31> Password;
@@ -239,28 +258,24 @@ typedef cStringType<25> Name;
 typedef cStringType<33> MailAddr;
 typedef int Privilege, OrderNumth;
 
-struct User;
-
-
 struct User {
     Name name;
     MailAddr mailAddr;
     Password password;
     Privilege privilege;
+    OrderNumth orderNumth;
 
     User() = default;
 
     User(Privilege privilege, const Name &name, const MailAddr &mailAddr,
-         const Password &password) : privilege(privilege), name(name), mailAddr(mailAddr),
-                                     password(password) {}
-
-    operator int() {
-        return privilege;
-    }
+         const Password &password, OrderNumth orderNumth = 0) : privilege(privilege), name(name), mailAddr(mailAddr),
+                                     password(password), orderNumth(orderNumth) {}
 
 };//hack 坚持使用cStringType, rawuser 是否就不需要了？
 
-InnerUniqueUnorderMap<Username, Privilege, std::hash<std::string>> loginUsers;
+typedef  std::pair<OrderNumth, Privilege> LoginUserInfo;
+
+InnerUniqueUnorderMap<Username,  LoginUserInfo, std::hash<std::string>> loginUsers;
 InnerUniqueUnorderMap<Username, OrderNumth, std::hash<std::string>> loginUserOrders;
 //better 订单可以放在内存里，等logout或者exit时写回去吗？那样就要有通知补票的机制，怎么补呢？对于有保证login的操作，都可以如此做吗？
 OuterUniqueUnorderMap<Username, User, std::hash<std::string>> existUsers;
@@ -272,22 +287,22 @@ typedef int PassedMinutes;
 typedef int Price;
 typedef cStringType<44> StationName;
 typedef HourMinute StartTime;
-typedef MonthDate SaleDate;
 typedef cStringType<2> Type;
 typedef cStringType<10> TwoChoice;
 typedef std::string StationNames, Prices, TravelTimes, StopoverTimes, SaleDates;
 
 struct Train {
     static constexpr int STATIONMAX = 101;
-    static constexpr int DAYMAX = 65;
+    static constexpr int DAYMAX = 100;
     StationNum stationNum;
     StationName stations[STATIONMAX];//这里可以用表示替代，注意！
     SeatNum seatNum;
-    Price priceSumSinceStart[STATIONMAX];
+    Price prices[STATIONMAX];
     StartTime startTime;
     PassedMinutes arrivingTimes[STATIONMAX] = {0};
     PassedMinutes leavingTimes[STATIONMAX] = {0};//FIXME 应该是直接算出每站的绝对时间
-    SaleDate startSaleDate, endSaleDate;
+    PassedMinutes duration;
+    MonthDate startSaleDate, endSaleDate;
     Type type;
     TicketNum ticketNums[DAYMAX][STATIONMAX] = {0};
     bool is_released = false;
@@ -295,14 +310,14 @@ struct Train {
     Train(StationNum _stationNum, const sjtu::vector<StationName> &_stations, SeatNum _seatNum,
           const sjtu::vector<Price> &_prices, const StartTime &_startTime,
           const sjtu::vector<PassedMinutes> &_arrivingTimes, const sjtu::vector<PassedMinutes> &_leavingTimes,
-          const sjtu::vector<SaleDate> &_saleDate, const Type &_type) : stationNum(_stationNum), seatNum(_seatNum),
+          const sjtu::vector<MonthDate> &_saleDate, const Type &_type) : stationNum(_stationNum), seatNum(_seatNum),
                                                                         startTime(_startTime), type(_type) {
         for (int i = 0; i < stationNum; ++i) stations[i] = _stations[i];
         arrivingTimes[0] = leavingTimes[stationNum - 1] = -1;
         arrivingTimes[1] = _arrivingTimes[0], leavingTimes[0] = 0;
-        priceSumSinceStart[0] = 0;
+        prices[0] = 0;
         for (int i = 1; i < stationNum; ++i) {
-            priceSumSinceStart[i] = priceSumSinceStart[i - 1] + _prices[i];
+            prices[i] = prices[i - 1] + _prices[i-1];
         }
         for (int i = 1; i <= stationNum - 2; ++i) {
             leavingTimes[i] = arrivingTimes[i] + _leavingTimes[i - 1];
@@ -310,43 +325,95 @@ struct Train {
         }
         startSaleDate = _saleDate[0], endSaleDate = _saleDate[1];
 
+        duration = int(_saleDate[1]) - int(_saleDate[0]) + 1;
+        for (int i = 0; i < duration; ++i)
+            for (int j = 0; j < _stationNum - 1; ++j)
+                ticketNums[i][j] = _seatNum;
+    }
+
+    int findStation(const StationName& stationName) const{
+        for (int i = 0; i < stationNum; ++i) {
+            if (stations[i] == stationName) return i;
+        }
+        return -1;
     }
 };
 
 
 OuterUniqueUnorderMap<TrainID, Train, std::hash<string>> existTrains;
-typedef OuterUniqueUnorderMap<TrainID, Train, std::hash<string>>::Iterator TrainPtr;
-
 
 typedef cStringType<10>Status;
+
 struct Order{
-    OrderNumth markth;
+    Username username;
     Status status;
-    
+    OrderNumth markth;
+
     TrainID trainID;
-    StationName from;
+    StationName fromStation;
+    StationName toStation;
     FullDate arrivingTime;
-    StationName to;
     FullDate leavingTime;
     Price price;
     int num;
+
+    Order(){}
+    Order(const Username &username, const Status &status, OrderNumth markth, const TrainID &trainId,
+          const StationName &fromStation, const StationName &toStation, const FullDate &arrivingTime,
+          const FullDate &leavingTime, Price price, int num) : username(username), status(status), markth(markth),
+                                                               trainID(trainId), fromStation(fromStation),
+                                                               toStation(toStation), arrivingTime(arrivingTime),
+                                                               leavingTime(leavingTime), price(price), num(num) {}
 };
+//stub
+#include <set>
+std::unordered_map<StationName, set<TrainID>, std::hash<std::string>> stmap;
+void addPassedTrain(StationName stationName, TrainID trainID){
+    //stub
+    stmap[stationName].insert(trainID);
+}
 
-struct UserOrders {
-    void buy_ticket() {}
+set<TrainID> findCommonTrain(StationName fromStation, StationName toStation){
+    //stub
+    auto iter_s = stmap.find(fromStation);
+    if(iter_s == stmap.end()) return set<TrainID>();
+    auto iter_t = stmap.find(toStation);
+    if(iter_t == stmap.end()) return set<TrainID>();
+    auto it_i = iter_s->second;
+    auto it_j = iter_t->second;
+    auto j = it_j.begin();
+    set<TrainID> ret;
+    for (auto i = it_i.begin(); i != it_i.end();++i){
+        for(;*j < *i;++j)
+            if(j == it_j.end()) goto BREAK;
+        if(*j == *i) ret.insert(*j);
+    }
+    BREAK:
+    return ret;
+}
 
-    void refund_ticket() {}
+typedef std::pair<Username, OrderNumth> UserOrder;//FIXME 所有使用userOrder的key的都不对
 
-    void query_order() {}
-};
+struct HashUserOrder{
+    size_t operator()(UserOrder t) const{
+        size_t hash1 = std::hash<std::string>()(t.first);
+        size_t hash2 = std::hash<OrderNumth>()(t.second);
+        return (hash1^(hash1<<24)^hash2^(hash2<<16));
+    }
+};//maybe this is a hash write by sjm
+OuterUniqueUnorderMap<UserOrder,Order,HashUserOrder> userOrders;
+//FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.
 
-struct LoginUserInfo : std::pair<OrderNumth, Privilege>{
-    OrderNumth& orderNumth = first;
-    Privilege & privilege = second;
-    using std::pair<int,int>::pair;
-};
 
+Queue<Order> waitQueue;
 
+void informQueue(TrainID trainID){
+
+}
+
+void informQueue(TrainID trainID, FullDate arrivingTime, FullDate leavingTime){
+
+}
 
 //queue开局加载，关闭放回
 //existUsers开局加载，关闭放回

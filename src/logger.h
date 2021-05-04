@@ -14,9 +14,9 @@
  * fans为答案文件路径，与AnsCheck联合使用（当AnsCheck被关闭时自动失效）
  */
 #define AnsCheck
-#define FileI { std::freopen("../data/basic_1/1.in", "r", stdin);};
-std::fstream fans("../data/basic_1/1.out");
-#define TimeTracing
+#define FileI { std::freopen("../data/basic_2/1.in", "r", stdin);};
+std::fstream fans("../data/basic_2/1.out");
+//#define TimeTracing
 
 
 
