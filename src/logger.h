@@ -15,11 +15,13 @@
  */
 #define AnsCheck
 #define FileI { std::freopen("../data/basic_2/1.in", "r", stdin);};
-std::fstream fans("../data/basic_2/1.out");
-//#define TimeTracing
+        std::fstream fans("../data/basic_2/1.out");
+#define TimeTracing
+//#define MagnitudeTracing
 
-
-
+//#define TracerTracing
+#define BeTraced trainID
+#define TraceWanting "LeavesofGrass"
 
 
 auto RED = "\033[0;31;1m";
@@ -28,7 +30,6 @@ auto YELLOW = "\033[0;33;1m";
 auto BLUE = "\033[0;34;1m";
 auto END = "\033[0m";
 auto CUT = "---------------------------------------------\n";
-
 
 
 std::ofstream main_log("log.dat", std::ios::app);
@@ -57,28 +58,57 @@ std::ofstream main_log("log.dat", std::ios::app);
 
 
 //-----------------------------------------------TIME TRACING
+#define ResetClock
+#define DisplayClock
 #ifdef TimeTracing
+
 #include <ctime>
 #include <map>
-map<const char*, int> time_recorder;
-map<const char*, int> function_called_num;
+
+std::map<const char *, int> time_recorder;
+std::map<const char *, int> function_called_num;
 int AAABBBCCC;
-int* functionToBeTimed= &AAABBBCCC;
+int *functionToBeTimed = &AAABBBCCC;
 clock_t tClockTimer = clock();
 #define ResetClock *functionToBeTimed += clock() - tClockTimer;tClockTimer = clock();functionToBeTimed = &time_recorder[__FUNCTION__];++function_called_num[__FUNCTION__]
-#define DisplayClock for(auto [functionName, timeSpend]:time_recorder) main_log << BLUE << string("                      " ).replace(0,string(functionName).length(),functionName) << "\t\ttime: " << timeSpend << "   \t\thitnumber: " << function_called_num[functionName] << "\t\taverage time: " << timeSpend/function_called_num[functionName] << std::endl
+#define DisplayClock for(auto [functionName, timeSpend]:time_recorder) main_log << BLUE << std::string("                      " ).replace(0,std::string(functionName).length(),functionName) << "\t\ttime: " << timeSpend << "   \t\thitnumber: " << function_called_num[functionName] << "\t\taverage time: " << timeSpend/function_called_num[functionName] << std::endl
 #define StartStopWatch auto functimer = [&](){ResetClock
 #define EndStopWatch };functimer();ResetClock
 //完全可以再写一套，不借助函数，这样就可以摆脱定义域的束缚了。不过先不写，不用吃饱了撑。
-#else
-#define ResetClock
-#define DisplayClock
 #endif
 //TODO 写一个东西，测文件读写次数/bpt访问次数
 
+//-----------------------------------------------MagnitudeTracing
+#ifdef MagnitudeTracing
+int maxLoginUserNum = 0;
+int LoginUserNum = 0;
+#define LoginTracing ++LoginUserNum;if(maxLoginUserNum < LoginUserNum)maxLoginUserNum = LoginUserNum
+#define LogoutTracing -- LoginUserNum
+#define WaitQueueLengthTracing
+#define DisplayMagnitude main_log << "maxLoginUserNum = " << maxLoginUserNum << std::endl
+#else
+#define LoginTracing
+#define LogoutTracing
+#define WaitQueueLengthTracing
+#define DisplayMagnitude
+#endif
+//todo 增加其它数据量级检测功能 如补票队长
+
+//todo 增加tracetrain功能，对单个火车显示其一切的日志
+//-----------------------------------------------Tracer
+#ifdef TracerTracing
+std::string traceAnswer;
+#define Tracer do {if(BeTraced == TraceWanting){traceAnswer+=input; traceAnswer+="\n";}}while(0)
+#define DisplayTrace main_log << CUT << traceAnswer << CUT;
+#else
+#define Tracer
+#define DisplayTrace
+#endif
 //-----------------------------------------------LOG
 inline void log() {
     DisplayClock;
+    DisplayMagnitude;
+    DisplayTrace;
     main_log << std::flush;
     std::ifstream fin("log.dat");
     std::string s;
@@ -95,10 +125,11 @@ inline void cleanlog() {
 }
 
 //-----------------------------------------------OUTPUT
-inline void Info(std::string x)    {main_log << BLUE << x << END << std::endl;}
+inline void Info(std::string x) { main_log << BLUE << x << END << std::endl; }
 
 class ErrorOccur {
 };
+
 inline void Error(const char *x) {
     main_log << RED << "error: " << x << END << std::endl << CUT;
     throw ErrorOccur();
@@ -110,13 +141,14 @@ void Return(T thing){
 #ifdef AnsCheck
     std::string ansstr, mystr;
     std::getline(fans, ansstr);
+//    std::cout << ansstr << std::endl;
     std::stringstream ss;
     ss << thing;
     mystr = ss.str();
     if(mystr!=ansstr){
-        main_log << RED  << "IWRONG IS: " << mystr << END << std::endl;
-        main_log << RED  << "ANSWER IS: " << ansstr << END << std::endl << CUT;
-//        std::cout << RED << "DIFFERENT ANSWER\n" << "ANSWER IS: " << ansstr << "\nIWRONG IS: " << mystr << std::endl;
+        main_log << RED  << "FAIL " << mystr << END << std::endl;
+        main_log << RED  << "ANS= " << ansstr << END << std::endl << CUT;
+        std::cout << RED << "DIFFERENT ANSWER\n" << "ANSWER IS: " << ansstr << "\nIWRONG IS: " << mystr << std::endl;
         log();
         std::exit(0);
     }

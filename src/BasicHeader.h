@@ -263,20 +263,17 @@ struct User {
     MailAddr mailAddr;
     Password password;
     Privilege privilege;
-    OrderNumth orderNumth;
 
     User() = default;
 
     User(Privilege privilege, const Name &name, const MailAddr &mailAddr,
          const Password &password, OrderNumth orderNumth = 0) : privilege(privilege), name(name), mailAddr(mailAddr),
-                                     password(password), orderNumth(orderNumth) {}
+                                     password(password){}
 
 };//hack 坚持使用cStringType, rawuser 是否就不需要了？
+//better existUsers可以全部丢进内存吗？
 
-typedef  std::pair<OrderNumth, Privilege> LoginUserInfo;
-
-InnerUniqueUnorderMap<Username,  LoginUserInfo, std::hash<std::string>> loginUsers;
-InnerUniqueUnorderMap<Username, OrderNumth, std::hash<std::string>> loginUserOrders;
+InnerUniqueUnorderMap<Username,  Privilege, std::hash<std::string>> loginUsers;
 //better 订单可以放在内存里，等logout或者exit时写回去吗？那样就要有通知补票的机制，怎么补呢？对于有保证login的操作，都可以如此做吗？
 OuterUniqueUnorderMap<Username, User, std::hash<std::string>> existUsers;
 
@@ -306,7 +303,7 @@ struct Train {
     Type type;
     TicketNum ticketNums[DAYMAX][STATIONMAX] = {0};
     bool is_released = false;
-
+    Train(){}
     Train(StationNum _stationNum, const sjtu::vector<StationName> &_stations, SeatNum _seatNum,
           const sjtu::vector<Price> &_prices, const StartTime &_startTime,
           const sjtu::vector<PassedMinutes> &_arrivingTimes, const sjtu::vector<PassedMinutes> &_leavingTimes,
@@ -347,7 +344,6 @@ typedef cStringType<10>Status;
 struct Order{
     Username username;
     Status status;
-    OrderNumth markth;
 
     TrainID trainID;
     StationName fromStation;
@@ -358,12 +354,17 @@ struct Order{
     int num;
 
     Order(){}
-    Order(const Username &username, const Status &status, OrderNumth markth, const TrainID &trainId,
-          const StationName &fromStation, const StationName &toStation, const FullDate &arrivingTime,
-          const FullDate &leavingTime, Price price, int num) : username(username), status(status), markth(markth),
+    Order(const Username &username, const Status &status, const TrainID &trainId,
+          const StationName &fromStation, const StationName &toStation,
+          const FullDate &leavingTime, const FullDate &arrivingTime, Price price, int num) : username(username), status(status),
                                                                trainID(trainId), fromStation(fromStation),
-                                                               toStation(toStation), arrivingTime(arrivingTime),
-                                                               leavingTime(leavingTime), price(price), num(num) {}
+                                                               toStation(toStation),
+                                                               leavingTime(leavingTime),arrivingTime(arrivingTime), price(price), num(num) {}
+                                                               operator std::string(){
+        std::string ans;
+        ans += (trainID + " " + fromStation + " " + std::string(leavingTime) + " -> " + toStation + " " + std::string(arrivingTime) + " " + std::to_string(price) + " " + std::to_string(num));
+                                                                   return  ans;
+    }
 };
 //stub
 #include <set>
@@ -392,17 +393,11 @@ std::set<TrainID> findCommonTrain(StationName fromStation, StationName toStation
     return ret;
 }
 
-typedef std::pair<Username, OrderNumth> UserOrder;//FIXME 所有使用userOrder的key的都不对
 
-struct HashUserOrder{
-    size_t operator()(UserOrder t) const{
-        size_t hash1 = std::hash<std::string>()(t.first);
-        size_t hash2 = std::hash<OrderNumth>()(t.second);
-        return (hash1^(hash1<<24)^hash2^(hash2<<16));
-    }
-};//maybe this is a hash write by sjm
-OuterUniqueUnorderMap<UserOrder,Order,HashUserOrder> userOrders;
+InnerOuterMultiUnorderMap<Username,Order,std::hash<std::string>> userOrders;
 //FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.
+
+typedef OuterUniqueUnorderMap<TrainID, Train, std::hash<std::string>>::Iterator TrainPtr;
 
 
 Queue<Order> waitQueue("wait_queue.dat");
