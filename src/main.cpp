@@ -9,7 +9,7 @@
 #include <sstream>
 #include "logger.h"
 #include "vector.hpp"
-
+#include <functional>
 
 void initialize();
 
@@ -86,6 +86,7 @@ void initialize() {
 
 void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成static使她快20倍，而即使这样也特别的慢。
     ResetClock;
+
     std::smatch parameter;
     static auto pluralStrMaker = [](const std::string &str) -> const std::string {
         const std::string strNoSpace = str.substr(1);
@@ -150,15 +151,19 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
             rule_exit("^exit");
 
     getline(std::cin, input);
+
     input.erase(0, input.find_first_not_of(" "));
     input.erase(input.find_last_not_of(" ") + 1);
 //    if (cin.eof()) exit(0);
     //maybe 不知道有没有eof自动关闭的机制，先认为没有，因为可能没有buy返回值，但又要动态放回。
     if (input == "") return;
-    Info(input);
-    //FIXME 这里不用每次都解析正则，改成static，或许是有很微小的优化空间的
 
-    static auto match = [&parameter](const std::regex &str) -> bool {//FIXME match这一步依然是耗时的大头
+    Info(input);
+    //memo 日志较为耗时，关掉即可
+
+
+    //FIXME match这一步依然是耗时的大头
+    static auto match = [&parameter](const std::regex &str) -> bool {
 
         return std::regex_search(input, parameter, str);
     };
@@ -173,32 +178,72 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
         if (match(str)) return stoi(parameter.str(1));
         return -1;
     };
-#define trymatch(str, func) if(match(str)){func;ResetClock;return;}
-    trymatch(rule_add_user, user::add_user(pm(_c), pm(_u), pm(_pu),
-                                           pm(_nu),
-                                           pm(_mu),
-                                           pmint(_g)))
-    trymatch(rule_login, user::login(pm(_u), pm(_pu)))
-    trymatch(rule_logout, user::logout(pm(_u)))
-    trymatch(rule_query_profile, user::query_profile(pm(_c), pm(_u)))
-    trymatch(rule_modify_profile, user::modify_profile(pm(_c), pm(_u), pm(_pu), pm(_nu), pm(_mu), pmint(_g)))
 
-    trymatch(rule_add_train,
-             train::add_train(pm(_i), pmint(_n), pmint(_m), pm(_ss), pm(_ps), pm(_x), pm(_ts), pm(_os), pm(_ds),
-                              pm(_y)))
-    trymatch(rule_release_train, train::release_train(pm(_i)))
-    trymatch(rule_query_train, train::query_train(pm(_i), pm(_d)))
-    trymatch(rule_delete_train, train::delete_train(pm(_i)))
-    trymatch(rule_query_ticket, train::query_ticket(pm(_startPlace), pm(_toPlace), pm(_d), pm(_pt)))//FIXME
-    trymatch(rule_query_transfer, train::query_transfer(pm(_startPlace), pm(_toPlace), pm(_d), pm(_pt)))//FIXME
-    trymatch(rule_buy_ticket,
-             train::buy_ticket(pm(_u), pm(_i), pm(_d), pmint(_num), pm(_fromPlace), pm(_toPlace), pm(_qt)))
-    trymatch(rule_query_order, train::query_order(pm(_u)))//FIXME
-    trymatch(rule_refund_ticket, train::refund_ticket(pm(_u), pmint(_num)))
-    trymatch(rule_log, log())
-    trymatch(rule_clean, sys::clean())
-    trymatch(rule_exit, sys::exit())
-#undef trymatch
+    static std::pair<std::regex, std::function<void()>> arr[17] = {{rule_add_user,       []() {
+        user::add_user(pm(_c), pm(_u), pm(_pu), pm(_nu), pm(_mu), pmint(_g));
+    }},
+                                                                   {rule_login,          []() {
+                                                                       user::login(pm(_u), pm(_pu));
+                                                                   }},
+                                                                   {rule_logout,         []() {
+                                                                       user::logout(pm(_u));
+                                                                   }},
+                                                                   {rule_query_profile,  []() {
+                                                                       user::query_profile(pm(_c), pm(_u));
+                                                                   }},
+                                                                   {rule_modify_profile, []() {
+                                                                       user::modify_profile(pm(_c), pm(_u), pm(_pu),
+                                                                                            pm(_nu), pm(_mu),
+                                                                                            pmint(_g));
+                                                                   }},
+                                                                   {rule_add_train,      []() {
+                                                                       train::add_train(pm(_i), pmint(_n), pmint(_m),
+                                                                                        pm(_ss), pm(_ps), pm(_x),
+                                                                                        pm(_ts), pm(_os), pm(_ds),
+                                                                                        pm(_y));
+                                                                   }},
+                                                                   {rule_release_train,  []() {
+                                                                       train::release_train(pm(_i));
+                                                                   }},
+                                                                   {rule_query_train,    []() {
+                                                                       train::query_train(pm(_i), pm(_d));
+                                                                   }},
+                                                                   {rule_delete_train,   []() {
+                                                                       train::delete_train(pm(_i));
+                                                                   }},
+                                                                   {rule_query_ticket,   []() {
+                                                                       train::query_ticket(pm(_startPlace),
+                                                                                           pm(_toPlace), pm(_d),
+                                                                                           pm(_pt));
+                                                                   }},
+                                                                   {rule_query_transfer, []() {
+                                                                       train::query_transfer(pm(_startPlace),
+                                                                                             pm(_toPlace), pm(_d),
+                                                                                             pm(_pt));
+                                                                   }},
+                                                                   {rule_buy_ticket,     []() {
+                                                                       train::buy_ticket(pm(_u), pm(_i), pm(_d),
+                                                                                         pmint(_num), pm(_fromPlace),
+                                                                                         pm(_toPlace), pm(_qt));
+                                                                   }},
+                                                                   {rule_query_order,    []() {
+                                                                       train::query_order(pm(_u));
+                                                                   }},
+                                                                   {rule_refund_ticket,  []() {
+                                                                       train::refund_ticket(pm(_u), pmint(_num));
+                                                                   }},
+                                                                   {rule_log,            []() { log(); }},
+                                                                   {rule_clean,          []() { sys::clean(); }},
+                                                                   {rule_exit,           []() { sys::exit(); }}};
+
+    for (auto i = begin(arr); i != end(arr); ++i) {
+        if (match(i->first)) {
+            i->second();
+            ResetClock;
+            return;
+        }
+    }
+
     Error("SYNTAX ERROR");
 }
 
@@ -314,7 +359,7 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
                       StartTime startTime, TravelTimes travelTimes, StopoverTimes stopoverTimes, SaleDates saleDates,
                       Type type) {
     ResetClock;
-    Tracer;
+//    Tracer;
     cks(8, trainID, stations, prices,
         startTime, travelTimes, stopoverTimes, saleDates,
         type);
@@ -352,7 +397,7 @@ void AssureLogin(Username username) {
 
 void train::release_train(TrainID trainID) {
     ResetClock;
-    Tracer;
+//    Tracer;
     ck(trainID);
     auto trainPtr = getTrainPtr(trainID);
     Train train = existTrains.getItem(trainPtr);
@@ -369,56 +414,149 @@ void train::release_train(TrainID trainID) {
 
 void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     ResetClock;
-    Tracer;
+//    Tracer;
     cks(2, trainID, startingMonthDate);
     Train train = getTrain(trainID);
-    if (startingMonthDate < train.startSaleDate || startingMonthDate < train.endSaleDate)
+    if (startingMonthDate < train.startSaleDate ||   train.endSaleDate < startingMonthDate)
         Error("QUERY DATE NOT IN SALE DATE");
 //既然周聪说了，按他说的改 maybe
     std::string ans;
     Return(trainID + " " + train.type);
     //TODO 检验日期是否在内
     for (int i = 0; i < train.stationNum; ++i) {
-        Return(train.stations[i] + " " + std::string(FullDate(startingMonthDate, train.startTime) += train
-                .arrivingTimes[i]) + " -> " + std::string(FullDate(startingMonthDate, train.startTime) += train
-                .leavingTimes[i]) + " " + std::to_string(train.prices[i]) + " " +
-               ((i != train.stationNum) ? std::to_string(train.ticketNums[startingMonthDate][i]) : "x"));
+        Return(train.stations[i] + " " + ((i!=0)?std::string(FullDate(startingMonthDate, train.startTime) += train
+                .arrivingTimes[i]):"xx-xx xx:xx") + " -> " + ((i+1 != train.stationNum) ?std::string(FullDate(startingMonthDate, train.startTime) += train
+                .leavingTimes[i]):"xx-xx xx:xx") + " " + std::to_string(train.prices[i]) + " " +
+               ((i+1 != train.stationNum) ? std::to_string(train.ticketNums[startingMonthDate][i]) : "x"));
     }
 }
 
 void train::delete_train(TrainID trainID) {
     ResetClock;
-    Tracer;
+//    Tracer;
     ck(trainID);
     if (!existTrains.erase(trainID))Error("DELETE TRAIN DOES NOT EXIST");
     Return(0);
 }
 
-#define OrderCalculator \
-        auto trainPtr = getTrainPtr(trainID);\
-        Train train = existTrains.getItem(trainPtr);\
-        if(!train.is_released) Error("TRAIN HAS NOT BEEN RELEASED YET");\
-        if (train.endSaleDate < monthDate || monthDate < train.startSaleDate) Error("OUT OF SALEDATE");\
-        HourMinute startTime = train.startTime;\
-        const int fromint = train.findStation(fromStation), toint = train.findStation(toStation);\
-        const PassedMinutes  leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];\
-        int overflow = (startTime += leavingTime);\
-        int index = int(monthDate) - int(train.startSaleDate) - overflow;                              \
-        MonthDate md = train.startSaleDate;\
-MonthDate trainStartDay(md += index);        \
-if (fromint == -1 || toint == -1)Error("CANNOT FIND STATION");\
-    TicketNum minTicket = 0x3f3f3f3f;\
-    for(int i = fromint; i < toint; ++i)\
-        minTicket = std::min(minTicket, train.ticketNums[index][i]);\
-    int time_ = arrivingTime - leavingTime;\
-    Order order("", "pending",\
-        trainID, fromStation, toStation,\
-        FullDate(trainStartDay, train.startTime) += leavingTime,\
-        FullDate(trainStartDay, train.startTime) += arrivingTime,\
-        train.prices[toint] - train.prices[fromint],\
-        minTicket\
-        )
 
+void train::query_order(Username username) {
+    ResetClock;
+    ck(username);
+    Tracer;
+    AssureLogin(username);
+    auto orderList = userOrders.find(username);
+    Return(orderList->size());
+    for (auto it = orderList->begin(); it != orderList->end(); ++it) {
+        Return(std::string("[") + it->status + "] " + std::string(*it));
+    }
+}
+
+
+//被informQueue调用。。。，或者被其返回的东西调用
+//better 只要钻入,把两个函数的地方变成一个函数，就可以取消用sjtu::vector传信息的消耗了
+void orderPendingChangeToSuccess(Order order) {
+
+}
+
+void informQueue(TrainID trainID, FullDate arrivingTime, FullDate leavingTime);
+
+struct OrderCalculator {
+    int timeret;
+    Username username;
+    TicketNum ticketNum;
+    TwoChoice wannaWaitToBuyIfNoEnoughTicket;
+    Order order;
+
+    decltype(waitQueue.begin()) *ititer;
+
+    void run(std::string functionName, TrainID trainID, MonthDate monthDate, StationName fromStation,
+             StationName toStation) {
+        Tracer;
+        auto trainPtr = getTrainPtr(trainID);
+        Train train = existTrains.getItem(trainPtr);
+        if (!train.is_released) Error("TRAIN HAS NOT BEEN RELEASED YET");
+        if (train.endSaleDate < monthDate || monthDate < train.startSaleDate) Error("OUT OF SALEDATE");
+        const int fromint = train.findStation(fromStation), toint = train.findStation(toStation);
+        const PassedMinutes leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];
+        HourMinute startTime = train.startTime;
+        int index = int(monthDate) - int(train.startSaleDate) - (startTime += leavingTime);
+        if(index < 0) Error("INDEX IS -X");
+        MonthDate md = train.startSaleDate;
+        MonthDate trainStartDay(md += index);
+        if (fromint == -1 || toint == -1)Error("CANNOT FIND STATION");
+        TicketNum minTicket = 0x3f3f3f3f;
+        for (int i = fromint; i < toint; ++i)
+            minTicket = std::min(minTicket, train.ticketNums[index][i]);
+        order = Order("", "pending",
+                      trainID, fromStation, toStation,
+                      FullDate(trainStartDay, train.startTime) += leavingTime,
+                      FullDate(trainStartDay, train.startTime) += arrivingTime,
+                      train.prices[toint] - train.prices[fromint],
+                      minTicket
+        );
+
+        //构造order，及共同模式
+
+        if (functionName == "query_ticket") {
+            timeret = train.arrivingTimes[toint] - train.leavingTimes[fromint];
+            return;
+        }
+        if (functionName == "buy_ticket") {
+            AssureLogin(username);
+            if (order.num < ticketNum) {//no enough ticket
+                if (wannaWaitToBuyIfNoEnoughTicket == "false") Error("NO ENOUGH TICKET");
+                waitQueue.push_front(order);//pending
+                userOrders.insert({username, order});
+                Return("queue");
+                return;
+            }
+
+            order.status = "success";//success
+            order.num = ticketNum;
+            order.username = username;
+            userOrders.insert({username, order});
+            for (int i = fromint; i < toint; ++i) {
+                train.ticketNums[index][i] -= ticketNum;
+            }
+            existTrains.setItem(trainPtr, train);
+            Return(order.price * ticketNum);
+            return;
+        }
+
+        if (functionName == "refund_ticket") {
+            for (int i = fromint; i < toint; ++i)//strange 为什么不能lambda化？
+                train.ticketNums[index][i] += order.num;
+            existTrains.setItem(trainPtr, train);
+            //todo 给那人退票操作。
+            for (auto it = waitQueue.begin(); it != waitQueue.end(); ++it) {
+                if (it->trainID != trainID || it->arrivingTime < order.leavingTime ||
+                    order.arrivingTime < it->leavingTime)
+                    continue;
+                ititer = &it;
+                run("informQueue", trainID, it->leavingTime, it->fromStation, it->toStation);
+            }
+            if (functionName == "informQueue") {//通知补票队列
+                auto &it = *ititer;
+                if (order.num < it->num)return;
+                //todo check valid
+                it->status = "success";//success
+                for (int i = fromint; i < toint; ++i) {
+                    train.ticketNums[index][i] -= it->num;
+                }
+                existTrains.setItem(trainPtr, train);
+                orderPendingChangeToSuccess(*it);
+                return;
+            }
+
+            // queue 可以持有快速访问order的方法，反之亦然。但反之的重要性不那么重要，因为内存queue既短又快。
+            Return(0);
+            return;
+        }
+    }
+} orderCalculator;
+
+//better 用order_calculator 都存在微小冗余，不用判错误等等
 
 void train::query_ticket(StationName fromStation, StationName toStation, MonthDate monthDate,
                          TwoChoice sortFromLowerToHigherBy) {
@@ -429,11 +567,13 @@ void train::query_ticket(StationName fromStation, StationName toStation, MonthDa
     //stub in order to use sort in <algorithm>, I use std::vector instead of sjtu::vector
     std::vector<std::pair<int, std::string>> vans;
     for (TrainID trainID : trains) {
-        OrderCalculator;
-        vans.push_back({(sortFromLowerToHigherBy == "time") ? time_ : order.price, std::string(order)});
+        orderCalculator.run("query_ticket", trainID, monthDate, fromStation, toStation);
+        vans.push_back({(sortFromLowerToHigherBy == "time") ? orderCalculator.timeret : orderCalculator.order.price,
+                        std::string(orderCalculator.order)});
     }
     //stub 对vector由低到高排序
 #include <algorithm>
+
     sort(vans.begin(), vans.end());
     Return(vans.size());
     for (auto i : vans) Return(i.second);
@@ -458,66 +598,41 @@ void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, 
     ckint(ticketNum);
     if (wannaWaitToBuyIfNoEnoughTicket == "") wannaWaitToBuyIfNoEnoughTicket = "false";
 
-    OrderCalculator;
-
-    AssureLogin(username);
-    if (order.num < ticketNum) {//no enough ticket
-        if (wannaWaitToBuyIfNoEnoughTicket == "false") Error("NO ENOUGH TICKET");
-        waitQueue.push_front(order);//pending
-        userOrders.insert({username, order});
-        Return("queue");
-        return;
-    }
-
-    order.status = "success";//success
-    order.num = ticketNum;
-    order.username = username;
-    userOrders.insert({username, order});
-    for (int i = fromint; i < toint; ++i) {
-        train.ticketNums[index][i] -= ticketNum;
-    }
-    existTrains.setItem(trainPtr, train);
-    Return(order.price * ticketNum);
+    orderCalculator.ticketNum = ticketNum;
+    orderCalculator.username = username;
+    orderCalculator.wannaWaitToBuyIfNoEnoughTicket = wannaWaitToBuyIfNoEnoughTicket;
+    orderCalculator.run("buy_ticket", trainID, monthDate, fromStation, toStation);
 }
 
-void train::query_order(Username username) {
-    ResetClock;
-    ck(username);
-    AssureLogin(username);
-    auto orderList = userOrders.find(username);
-    Return(orderList.size());
-    for (auto it = orderList.begin(); it != orderList.end(); ++it) {
-        Return(std::string("[") + it->status + "] " + std::string(*it));
-    }
-}
+
+//queue开局加载，关闭放回
+//existUsers开局加载，关闭放回
+
+//对类的成员广播，让它们同意做什么，是可以的，只要有个地方持有所有类成员的指针就可以了。不过没必要
+
+//todo User 的 orderTotalNum 放在exist和login里面好了
+
+//guai,到底怎么优化掉这个重复代码啊
+
 
 void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ResetClock;
+    Tracer;
     ck(username);
     ckint(orderNumth);
     if (orderNumth == -1) orderNumth = 1;
     AssureLogin(username);
+
     const auto orderIter = userOrders.find(username, orderNumth);
     if (!orderIter)Error("WRONG ORDERNUMTH");
     Order &order = *orderIter;
     if (order.status == "refunded")Error("ALREADY REFUNDED");
     if (order.status == "pending") {
-        order.status = "refunded";// todo 要判是否在队列里，如果在直接炸掉即可。
+        // todo 删除队列里的对应的等待Order
     }
-    order.status = "refunded";// todo 要判是否在队列里，如果在直接炸掉即可。
-    const TrainID &trainID = order.trainID;
-    const auto trainPtr = getTrainPtr(trainID);
-    Train train = existTrains.getItem(trainPtr);
-    int i = MonthDate(order.arrivingTime) - train.startSaleDate;//时间值得怀疑,这也不对
-    const int fromint = train.findStation(order.fromStation);
-    const int toint = train.findStation(order.toStation);
-    for (int j = fromint; j <= toint; ++j)
-        train.ticketNums[i][j] += order.num;
-    existTrains.setItem(trainPtr, train);
-
-    informQueue(trainID, order.arrivingTime, order.leavingTime);//todo
-    // queue 可以持有快速访问order的方法，反之亦然。但反之的重要性不那么重要，因为内存queue既短又快。
-    Return(0);
+    order.status = "refunded";
+    orderCalculator.order = order;
+    orderCalculator.run("refund_ticket", order.trainID, order.leavingTime, order.fromStation, order.toStation);
 }
 
 

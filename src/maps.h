@@ -11,6 +11,7 @@
 #include "filemanip.h"
 #include <set>
 
+//stub 唐嘉铭 todo
 template<class Key, class Value, class Hash>
 class OuterUniqueUnorderMap {
 public:
@@ -39,7 +40,7 @@ public:
         return iter->second;
     }
 
-    void setItem(Iterator iter, Value value) {
+    void setItem(Iterator iter, const Value &value) {
         iter->second = value;
     }
 
@@ -54,6 +55,49 @@ public:
 private:
     std::unordered_map<Key, Value, Hash> mapper;
 };
+
+
+
+//stub 唐嘉铭 todo
+template<class Key, class Value, class Hash>
+//Hash是一个模板类名，它实例化后的一个对象例为auto h = Hash<string>(), 这个对象重载了括号，比如可以h(1),然后返回一个size_t
+class InnerUniqueUnorderMap {
+public:
+
+    bool insert(const std::pair<Key, Value> &pair) {
+        return mapper.insert(pair).second;
+    }
+
+    std::pair<Value, bool> erase(const Key &key) {
+        auto iter = mapper.find(key);
+        if (iter == mapper.end()) return {Value(), 0};
+        Value v = iter->second;
+        mapper.erase(iter);
+        return {v, 1};
+    }
+
+    bool empty() const {
+        return mapper.empty();
+    }
+
+    void clear() {
+        mapper.clear();
+    }
+
+    Value *find(Key key) {
+        auto f = mapper.find(key);
+        if (f == mapper.end()) return nullptr;
+        return &(f->second);
+    }
+
+private:
+    std::unordered_map<Key, Value, Hash> mapper;
+};
+
+
+
+
+
 
 template<class T>
 struct InnerList{
@@ -75,6 +119,9 @@ struct InnerList{
         root = new Node();
     }
 
+    InnerList(const InnerList&) = delete;
+    InnerList& operator=(const InnerList&) = delete;
+
     virtual ~InnerList() {
         while (root) {
             Node *nextroot = root->n;
@@ -86,6 +133,8 @@ struct InnerList{
 
     struct Iterator {
         Node *ptr;
+
+        Iterator() = default;
 
         Iterator(Node *ptr) : ptr(ptr) {}
 
@@ -162,42 +211,6 @@ struct InnerList{
 
 
 template<class Key, class Value, class Hash>
-//Hash是一个模板类名，它实例化后的一个对象例为auto h = Hash<string>(), 这个对象重载了括号，比如可以h(1),然后返回一个size_t
-class InnerUniqueUnorderMap {
-public:
-
-    bool insert(const std::pair<Key, Value> &pair) {
-        return mapper.insert(pair).second;
-    }
-
-    std::pair<Value, bool> erase(const Key &key) {
-        auto iter = mapper.find(key);
-        if (iter == mapper.end()) return {Value(), 0};
-        Value v = iter->second;
-        mapper.erase(iter);
-        return {v, 1};
-    }
-
-    bool empty() const {
-        return mapper.empty();
-    }
-
-    void clear() {
-        mapper.clear();
-    }
-
-    Value *find(Key key) {
-        auto f = mapper.find(key);
-        if (f == mapper.end()) return nullptr;
-        return &(f->second);
-    }
-
-private:
-    std::unordered_map<Key, Value, Hash> mapper;
-};
-
-
-template<class Key, class Value, class Hash>
 class InnerOuterMultiUnorderMap {
 public:
     InnerOuterMultiUnorderMap(){
@@ -208,29 +221,29 @@ public:
     }
 
     void insert(const std::pair<Key, Value> &pair) {
-        InnerList<Value>& keylist = find(pair.first);
-        keylist.push_front(pair.second);
+        InnerList<Value>* keylist = find(pair.first);
+        keylist->push_front(pair.second);
     }
 
     typedef Value* Iterator;
 
     Iterator find(Key key, int n) {//找到第n新插入的东西。
-        InnerList<Value>& keylist = find(key);
-        if(n < 1 || n > keylist.size()) return nullptr;
-        auto it = keylist.begin();
+        InnerList<Value>* keylist = find(key);
+        if(n < 1 || n > keylist->size()) return nullptr;
+        auto it = keylist->begin();
         while(--n) ++it;
         return &(it.ptr->t);
     }
 
-    InnerList<Value>& find(Key key) {
+    InnerList<Value>* find(Key key) {
         auto iter = mapper.find(key);
         if (iter == nullptr) {
             auto listptr = new InnerList<Value>();
             setter.push_front(listptr);
             mapper.insert({key,listptr});
-            return **(mapper.find(key));
+            return *(mapper.find(key));
         }
-        return **iter;
+        return *iter;
     };
 
     void clear() {
@@ -280,15 +293,18 @@ struct Queue : InnerList<T> {
             if (nextroot) fwrite(file, nextroot->t);
             InnerList<T>::root= nextroot;
         }
-        file.close();
+        file.close();//fixme 开了文件就别关了，退出再关。
     }
     //better 加功能：空间太大刷入外存。接口不变。
 };
+
 
 //memo 关于写法：queue整万划分，queue基本在内存中进行，直到内存达万划入一个整万块。在refund时，一个个把整万块拿出来在栈空间检查，然后如果某个整万块退成了，把那个块在内存里改掉后在外存里全部覆写一遍。
 
 //memo 关于userorder的写法： 内存中维护一个{loginuser，the beginning of userorder-list} 的unordered_map,然后所有userorder-list 存入一个文件，如果某个user内存中有过长的order，就把它刷到文件末尾，并附加刷一个指向上一个块的位置。
 // 优化1.如果某次query_order发现碎片块过多了，就把它们全读入内存整合，然后在文件末尾写入一个整合后的连续链表。优化2. 维护某个外存整块100bit-200bit，200bit-300bit被用了多少字节。如果某一时刻发现其用了0字节，就知道它可用了。以此完成垃圾回收。
+//caution 因为毕竟是F操作，如果时耗足够小这两个优化是可以一起不用做的。如果队列够短，也是不用做整万划分的。
+//更正：写成vector
 
-
+//bug 数据结构有bug，先把这个写好吧。
 #endif //MAIN_CPP_MAPS_H

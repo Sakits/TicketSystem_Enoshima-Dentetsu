@@ -139,6 +139,15 @@ struct HourMinute {
         return overflow;//better 取模是否可优化？
     }
 
+    bool operator<(const HourMinute &rhs) const {
+        if (hour < rhs.hour)
+            return true;
+        if (rhs.hour < hour)
+            return false;
+        return minute < rhs.minute;
+    }
+
+
     friend std::ostream &operator<<(std::ostream &os, const HourMinute &hourMinute) {
         os << ((hourMinute.hour < 10) ? "0" : "") << hourMinute.hour << ":" << ((hourMinute.minute < 10) ? "0" : "")
            << hourMinute.minute;
@@ -153,9 +162,13 @@ struct MonthDate {
     void testvaild() const {if(month < 6 || month > 8 || date < 0 || date > 31)
         {
         std::cout << std::string(*this) << std::endl;
-        throw ("sss");
+//        log();
+//        exit(0);
+//        throw ("sss");
         }
     }
+
+    static constexpr int calendar[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
     MonthDate() {}
 
@@ -167,7 +180,7 @@ struct MonthDate {
 
     MonthDate &operator++() {
         testvaild();
-        if ((date == 30 && month == 6) || (date == 31 && (month == 7 || month == 8))) {
+        if (date == calendar[month]) {
             month += 1, date = 1;
             return *this;
         }
@@ -183,7 +196,6 @@ struct MonthDate {
 
     operator int() const {
         testvaild();
-        const int calendar[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
         int ans = date;
         for (int i = month; i != 6; --i)
             ans += calendar[i - 1];
@@ -218,6 +230,7 @@ struct MonthDate {
         return os;
     }
 };
+constexpr int MonthDate::calendar[13];
 
 struct FullDate {
     MonthDate monthDate;
@@ -227,8 +240,17 @@ struct FullDate {
     FullDate(const MonthDate &monthDate, const HourMinute &hourMinute) : monthDate(monthDate), hourMinute(hourMinute) {}
 
     FullDate &operator+=(int x) {
+//        if(x == -1){hourMinute.hour = -1, monthDate.month = 0; return *this;}
         monthDate += (hourMinute += x);
         return *this;
+    }
+
+    bool operator<(const FullDate &rhs) const {
+        if (monthDate < rhs.monthDate)
+            return true;
+        if (rhs.monthDate < monthDate)
+            return false;
+        return hourMinute < rhs.hourMinute;
     }
 
 
@@ -303,14 +325,17 @@ struct Train {
     Type type;
     TicketNum ticketNums[DAYMAX][STATIONMAX] = {0};
     bool is_released = false;
-    Train(){}
+    Train() = delete;
+    //caution 拷贝赋值都是浅拷贝！
+//    Train(const Train&) = delete;
+//    Train &operator=(const Train&) = delete;
     Train(StationNum _stationNum, const sjtu::vector<StationName> &_stations, SeatNum _seatNum,
           const sjtu::vector<Price> &_prices, const StartTime &_startTime,
           const sjtu::vector<PassedMinutes> &_arrivingTimes, const sjtu::vector<PassedMinutes> &_leavingTimes,
           const sjtu::vector<MonthDate> &_saleDate, const Type &_type) : stationNum(_stationNum), seatNum(_seatNum),
                                                                         startTime(_startTime), type(_type) {
         for (int i = 0; i < stationNum; ++i) stations[i] = _stations[i];
-        arrivingTimes[0] = leavingTimes[stationNum - 1] = -1;
+        arrivingTimes[0] = leavingTimes[stationNum - 1] = 0;
         arrivingTimes[1] = _arrivingTimes[0], leavingTimes[0] = 0;
         prices[0] = 0;
         for (int i = 1; i < stationNum; ++i) {
@@ -402,21 +427,6 @@ typedef OuterUniqueUnorderMap<TrainID, Train, std::hash<std::string>>::Iterator 
 
 Queue<Order> waitQueue("wait_queue.dat");
 
-void informQueue(TrainID trainID, FullDate arrivingTime, FullDate leavingTime){
 
-}
-
-//被informQueue调用。。。，或者被其返回的东西调用
-//better 只要钻入,把两个函数的地方变成一个函数，就可以取消用sjtu::vector传信息的消耗了
-void orderPendingChangeToSuccess(Order order){
-
-}
-
-//queue开局加载，关闭放回
-//existUsers开局加载，关闭放回
-
-//对类的成员广播，让它们同意做什么，是可以的，只要有个地方持有所有类成员的指针就可以了。不过没必要
-
-//todo User 的 orderTotalNum 放在exist和login里面好了
 
 #endif //TRAINTICKET_BASICHEADER_H

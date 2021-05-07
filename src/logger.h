@@ -20,8 +20,8 @@
 //#define MagnitudeTracing
 
 //#define TracerTracing
-#define BeTraced trainID
-#define TraceWanting "LeavesofGrass"
+#define BeTraced username
+#define TraceWanting "Haze"
 
 
 auto RED = "\033[0;31;1m";
@@ -58,8 +58,7 @@ std::ofstream main_log("log.dat", std::ios::app);
 
 
 //-----------------------------------------------TIME TRACING
-#define ResetClock
-#define DisplayClock
+
 #ifdef TimeTracing
 
 #include <ctime>
@@ -71,10 +70,12 @@ int AAABBBCCC;
 int *functionToBeTimed = &AAABBBCCC;
 clock_t tClockTimer = clock();
 #define ResetClock *functionToBeTimed += clock() - tClockTimer;tClockTimer = clock();functionToBeTimed = &time_recorder[__FUNCTION__];++function_called_num[__FUNCTION__]
-#define DisplayClock for(auto [functionName, timeSpend]:time_recorder) main_log << BLUE << std::string("                      " ).replace(0,std::string(functionName).length(),functionName) << "\t\ttime: " << timeSpend << "   \t\thitnumber: " << function_called_num[functionName] << "\t\taverage time: " << timeSpend/function_called_num[functionName] << std::endl
-#define StartStopWatch auto functimer = [&](){ResetClock
-#define EndStopWatch };functimer();ResetClock
-//完全可以再写一套，不借助函数，这样就可以摆脱定义域的束缚了。不过先不写，不用吃饱了撑。
+#define DisplayClock for(auto f_t:time_recorder) main_log << BLUE << std::string("                      " ).replace(0,std::string(f_t.first).length(),f_t.first) << "\t\ttime: " << f_t.second << "   \t\thitnumber: " << function_called_num[f_t.first] << "\t\taverage time: " << f_t.second/function_called_num[f_t.first] << std::endl
+#define StartStopWatch do{*functionToBeTimed += clock() - tClockTimer;tClockTimer = clock();functionToBeTimed = &time_recorder["STOP_WATCH"];++function_called_num["STOP_WATCH"];}while(0)
+#define EndStopWatch ResetClock
+#else
+#define ResetClock
+#define DisplayClock
 #endif
 //TODO 写一个东西，测文件读写次数/bpt访问次数
 
@@ -155,6 +156,8 @@ void Return(T thing){
 #endif
     main_log << GREEN  << "success " << thing << END << std::endl << CUT;
 }
+//怎么查撞哈希啊
+//测试驱动开发
 
 #define CODE_LOGGER_H
 
