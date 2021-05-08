@@ -9,51 +9,93 @@
 #include <unordered_map>
 #include "vector.hpp"
 #include "filemanip.h"
+#include "BPlusTree.hpp"
 #include <set>
 
-//stub 唐嘉铭 todo
+// Hash 将 Key 映射为一个 unsigned long long
 template<class Key, class Value, class Hash>
-class OuterUniqueUnorderMap {
-public:
-
-    bool insert(const std::pair<Key, Value> &pair) {
-        return mapper.insert(pair).second;
-    }
-
-    bool erase(const Key &key) {
-        return mapper.erase(key);
-    }
-
-
-//    struct Iterator {
-//    };
-
-    typedef typename std::unordered_map<Key, Value, Hash>::iterator Iterator;
-
-    std::pair<Iterator, bool> find(Key key) {
-        auto f = mapper.find(key);
-        if (f == mapper.end()) return {mapper.end(), 0};
-        return {f, true};
-    }
-
-    Value getItem(Iterator iter) {
-        return iter->second;
-    }
-
-    void setItem(Iterator iter, const Value &value) {
-        iter->second = value;
-    }
-
-    bool empty() const {
-        return mapper.empty();
-    }
-
-    void clear() {
-        mapper.clear();
-    }
-
+class OuterUniqueUnorderMap 
+{
 private:
-    std::unordered_map<Key, Value, Hash> mapper;
+    char file[30];
+    BPlusTree bpt;
+    std :: fstream fio;
+
+public:
+    OuterUniqueUnorderMap(const char* _datafile, const char* _bptfile) : bpt(_bptfile)
+    {
+        strcpy(file, _datafile);
+        std :: fstream fin(_datafile, std :: ios :: in | std :: ios :: binary);
+        if (!fin.is_open())
+        {
+            std :: fstream fout(_datafile, std :: ios :: out | std :: ios :: binary);
+            fout.close();
+        }
+        fin.close();
+
+        fio.open(_datafile, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
+    };
+
+    ~OuterUniqueUnorderMap() {fio.close();}
+
+    bool insert(std::pair<Key, Value> &pair) 
+    {
+        fio.seekg(0, std :: ios :: end);
+        int pos = fio.tellp();
+
+        bool flag = bpt.insert(Hash()(pair.first), pos, 1);
+        if (flag)
+            fio.write(reinterpret_cast<char*>(&(pair.second)), sizeof(pair.second));
+        
+        return flag;
+    }
+
+    bool erase(const Key &key) 
+    {
+        return bpt.erase(Hash()(key));
+    }
+
+    std::pair<int, bool> find(const Key &key) 
+    {
+        int f = bpt.query(Hash()(key));
+        return {f, ~f ? 1 : 0};
+    }
+
+    Value getItem(int pos) 
+    {
+        Value ans;
+        fio.seekg(pos, std :: ios :: beg);
+        fio.read(reinterpret_cast<char*>(&ans), sizeof(ans));
+        return ans;
+    }
+
+    void setItem(int pos, Value &value) 
+    {
+        fio.seekg(pos, std :: ios :: beg);
+        fio.write(reinterpret_cast<char*>(&value), sizeof(value));
+    }
+
+    int get_size() const
+    {
+        return bpt.get_size();
+    }
+
+    bool empty() const 
+    {
+        return bpt.get_size() != 0;
+    }
+
+    void clear() 
+    {
+        fio.close();
+
+        std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
+        fout.close();
+
+        fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
+
+        bpt.clear();
+    }
 };
 
 
