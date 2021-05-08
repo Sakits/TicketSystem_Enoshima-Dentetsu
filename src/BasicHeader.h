@@ -310,7 +310,7 @@ struct User {
 
 InnerUniqueUnorderMap<Username, Privilege, std::hash<std::string>> loginUsers;
 //better 订单可以放在内存里，等logout或者exit时写回去吗？那样就要有通知补票的机制，怎么补呢？对于有保证login的操作，都可以如此做吗？
-OuterUniqueUnorderMap<Username, User, std::hash<std::string>> existUsers("existUsers.dat","bpt_existUsers.dat");
+OuterUniqueUnorderMap<Username, User, HashString> existUsers("existUsers.dat","bpt_existUsers.dat");
 
 
 typedef cStringType<22> TrainID;
@@ -377,7 +377,7 @@ struct Train {
 };
 
 
-OuterUniqueUnorderMap<TrainID, Train, std::hash<std::string>> existTrains("existTrains.dat", "bpt_existTrains.dat");
+OuterUniqueUnorderMap<TrainID, Train, HashString> existTrains("existTrains.dat", "bpt_existTrains.dat");
 
 typedef cStringType<10> Status;
 
@@ -474,7 +474,7 @@ std::set<midStation> findMidStation(StationName fromStation, StationName toStati
 InnerOuterMultiUnorderMap<Username, Order, std::hash<std::string>> userOrders;
 //FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.
 
-//typedef OuterUniqueUnorderMap<TrainID, Train, std::hash<std::string>>::Iterator TrainPtr;
+//typedef OuterUniqueUnorderMap<TrainID, Train, HashString>::Iterator TrainPtr;
 
 
 Queue<Order> waitQueue("wait_queue.dat");

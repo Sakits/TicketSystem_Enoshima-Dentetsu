@@ -341,6 +341,14 @@ struct Queue : InnerList<T> {
 };
 
 
+struct HashString{
+    unsigned long long operator()(const std::string &str){
+        int ans = 0;
+        for(int i = 0; str[i]!='\0'; ++i) ans = ans * 19260817 + str[i];
+        return ans;
+    }
+};
+
 //memo 关于写法：queue整万划分，queue基本在内存中进行，直到内存达万划入一个整万块。在refund时，一个个把整万块拿出来在栈空间检查，然后如果某个整万块退成了，把那个块在内存里改掉后在外存里全部覆写一遍。
 
 //memo 关于userorder的写法： 内存中维护一个{loginuser，the beginning of userorder-list} 的unordered_map,然后所有userorder-list 存入一个文件，如果某个user内存中有过长的order，就把它刷到文件末尾，并附加刷一个指向上一个块的位置。
