@@ -3,6 +3,7 @@
 //
 
 #ifndef CODE_LOGGER_H
+#define CODE_LOGGER_H
 
 
 #include <iostream>
@@ -14,14 +15,14 @@
  * fans为答案文件路径，与AnsCheck联合使用（当AnsCheck被关闭时自动失效）
  */
 #define AnsCheck
-#define FileI { std::freopen("../data/basic_2/1.in", "r", stdin);};
-        std::fstream fans("../data/basic_2/1.out");
+#define FileI { std::freopen("../data/basic_6/1.in", "r", stdin);};
+        std::fstream fans("../data/basic_6/1.out");
 #define TimeTracing
 //#define MagnitudeTracing
 
 //#define TracerTracing
-#define BeTraced username
-#define TraceWanting "Haze"
+#define BeTraced trainID
+#define TraceWanting "LeavesofGrass"
 
 
 auto RED = "\033[0;31;1m";
@@ -67,10 +68,10 @@ std::ofstream main_log("log.dat", std::ios::app);
 std::map<const char *, int> time_recorder;
 std::map<const char *, int> function_called_num;
 int AAABBBCCC;
-int *functionToBeTimed = &AAABBBCCC;
+int *functionToBeTimed = &AAABBBCCC;//FIXME 有多重包含现象，可以改成.cpp但是会臃肿，之后再说
 clock_t tClockTimer = clock();
 #define ResetClock *functionToBeTimed += clock() - tClockTimer;tClockTimer = clock();functionToBeTimed = &time_recorder[__FUNCTION__];++function_called_num[__FUNCTION__]
-#define DisplayClock for(auto f_t:time_recorder) main_log << BLUE << std::string("                      " ).replace(0,std::string(f_t.first).length(),f_t.first) << "\t\ttime: " << f_t.second << "   \t\thitnumber: " << function_called_num[f_t.first] << "\t\taverage time: " << f_t.second/function_called_num[f_t.first] << std::endl
+#define DisplayClock for(auto f_t:time_recorder) main_log << BLUE << std::string("                      " ).replace(0,std::string(f_t.first).length(),f_t.first) << "\t\ttime: " << f_t.second << "    \t\thitnumber: " << function_called_num[f_t.first] << "\t\taverage time: " << f_t.second/function_called_num[f_t.first] << std::endl
 #define StartStopWatch do{*functionToBeTimed += clock() - tClockTimer;tClockTimer = clock();functionToBeTimed = &time_recorder["STOP_WATCH"];++function_called_num["STOP_WATCH"];}while(0)
 #define EndStopWatch ResetClock
 #else
@@ -83,13 +84,14 @@ clock_t tClockTimer = clock();
 #ifdef MagnitudeTracing
 int maxLoginUserNum = 0;
 int LoginUserNum = 0;
-#define LoginTracing ++LoginUserNum;if(maxLoginUserNum < LoginUserNum)maxLoginUserNum = LoginUserNum
-#define LogoutTracing -- LoginUserNum
+std::map<const char *, std::pair<int,int>> mag_recorder;
+#define InTrace(x) ++mag_recorder[x].first;if(mag_recorder[x].second < mag_recorder[x].first)mag_recorder[x].second = mag_recorder[x].first
+#define OutTrace(x) --mag_recorder[x].first
 #define WaitQueueLengthTracing
-#define DisplayMagnitude main_log << "maxLoginUserNum = " << maxLoginUserNum << std::endl
+#define DisplayMagnitude for(auto c_p:mag_recorder)main_log << c_p.first << "\t" << c_p.second.second << std::endl
 #else
-#define LoginTracing
-#define LogoutTracing
+#define InTrace
+#define OutTrace
 #define WaitQueueLengthTracing
 #define DisplayMagnitude
 #endif
@@ -136,9 +138,12 @@ inline void Error(const char *x) {
     throw ErrorOccur();
 }
 
+bool writeByMyself = false;
 template<class T>
 void Return(T thing){
     std::cout << thing << std::endl;
+//    log();
+    if(writeByMyself) return;
 #ifdef AnsCheck
     std::string ansstr, mystr;
     std::getline(fans, ansstr);
@@ -147,18 +152,20 @@ void Return(T thing){
     ss << thing;
     mystr = ss.str();
     if(mystr!=ansstr){
-        main_log << RED  << "FAIL " << mystr << END << std::endl;
-        main_log << RED  << "ANS= " << ansstr << END << std::endl << CUT;
-        std::cout << RED << "DIFFERENT ANSWER\n" << "ANSWER IS: " << ansstr << "\nIWRONG IS: " << mystr << std::endl;
+        main_log << RED  << "IWRONG IS: " << mystr << END << std::endl;
+        main_log << RED  << "ANSWER IS: " << ansstr << END << std::endl << CUT;
         log();
-        std::exit(0);
+//        std::exit(0);
+        freopen("../myin.txt", "r", stdin);
+        writeByMyself = true;
     }
 #endif
     main_log << GREEN  << "success " << thing << END << std::endl << CUT;
+
 }
 //怎么查撞哈希啊
 //测试驱动开发
+//不能被多重包含，讨厌。
 
-#define CODE_LOGGER_H
 
 #endif //CODE_LOGGER_H
