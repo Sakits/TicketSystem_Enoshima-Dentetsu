@@ -82,7 +82,7 @@ public:
 
     bool empty() const 
     {
-        return bpt.get_size() != 0;
+        return bpt.get_size() == 0;
     }
 
     void clear() 
