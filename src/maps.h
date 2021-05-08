@@ -14,7 +14,7 @@
 
 // Hash 将 Key 映射为一个 unsigned long long
 template<class Key, class Value, class Hash>
-class OuterUniqueUnorderMap 
+class OuterUniqueUnorderMap
 {
 private:
     char file[30];
@@ -38,30 +38,30 @@ public:
 
     ~OuterUniqueUnorderMap() {fio.close();}
 
-    bool insert(std::pair<Key, Value> &pair) 
+    bool insert(const std::pair<Key, Value> &pair)
     {
         fio.seekg(0, std :: ios :: end);
         int pos = fio.tellp();
 
         bool flag = bpt.insert(Hash()(pair.first), pos, 1);
         if (flag)
-            fio.write(reinterpret_cast<char*>(&(pair.second)), sizeof(pair.second));
-        
+            fio.write(reinterpret_cast<const char*>(&(pair.second)), sizeof(pair.second));
+
         return flag;
     }
 
-    bool erase(const Key &key) 
+    bool erase(const Key &key)
     {
         return bpt.erase(Hash()(key));
     }
 
-    std::pair<int, bool> find(const Key &key) 
+    std::pair<int, bool> find(const Key &key)
     {
         int f = bpt.query(Hash()(key));
         return {f, ~f ? 1 : 0};
     }
 
-    Value getItem(int pos) 
+    Value getItem(int pos)
     {
         Value ans;
         fio.seekg(pos, std :: ios :: beg);
@@ -69,10 +69,10 @@ public:
         return ans;
     }
 
-    void setItem(int pos, Value &value) 
+    void setItem(int pos, const Value &value)
     {
         fio.seekg(pos, std :: ios :: beg);
-        fio.write(reinterpret_cast<char*>(&value), sizeof(value));
+        fio.write(reinterpret_cast<const char*>(&value), sizeof(value));
     }
 
     int get_size() const
@@ -80,12 +80,12 @@ public:
         return bpt.get_size();
     }
 
-    bool empty() const 
+    bool empty() const
     {
         return bpt.get_size() == 0;
     }
 
-    void clear() 
+    void clear()
     {
         fio.close();
 
@@ -321,7 +321,7 @@ struct Queue : InnerList<T> {
         while (file) {
             fread(file, t);
             if(file)
-            constructor = constructor->n = new Node(t, nullptr, constructor);
+                constructor = constructor->n = new Node(t, nullptr, constructor);
         }
         file.close();
     }

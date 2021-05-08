@@ -18,7 +18,7 @@
 #define FileI { std::freopen("../data/basic_6/1.in", "r", stdin);};
         std::fstream fans("../data/basic_6/1.out");
 #define TimeTracing
-//#define MagnitudeTracing
+#define MagnitudeTracing
 
 //#define TracerTracing
 #define BeTraced trainID
@@ -71,7 +71,7 @@ int AAABBBCCC;
 int *functionToBeTimed = &AAABBBCCC;//FIXME 有多重包含现象，可以改成.cpp但是会臃肿，之后再说
 clock_t tClockTimer = clock();
 #define ResetClock *functionToBeTimed += clock() - tClockTimer;tClockTimer = clock();functionToBeTimed = &time_recorder[__FUNCTION__];++function_called_num[__FUNCTION__]
-#define DisplayClock for(auto f_t:time_recorder) main_log << BLUE << std::string("                      " ).replace(0,std::string(f_t.first).length(),f_t.first) << "\t\ttime: " << f_t.second << "    \t\thitnumber: " << function_called_num[f_t.first] << "\t\taverage time: " << f_t.second/function_called_num[f_t.first] << std::endl
+#define DisplayClock for(auto f_t:time_recorder) main_log << BLUE << std::string("                      " ).replace(0,std::string(f_t.first).length(),f_t.first) << "\t\ttime: " << f_t.second << "   \t\thitnumber: " << function_called_num[f_t.first] << "\t\taverage time: " << f_t.second/function_called_num[f_t.first] << std::endl
 #define StartStopWatch do{*functionToBeTimed += clock() - tClockTimer;tClockTimer = clock();functionToBeTimed = &time_recorder["STOP_WATCH"];++function_called_num["STOP_WATCH"];}while(0)
 #define EndStopWatch ResetClock
 #else

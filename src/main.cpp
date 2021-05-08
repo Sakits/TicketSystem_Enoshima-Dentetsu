@@ -201,7 +201,6 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
     for (auto i = begin(arr); i != end(arr); ++i) {
         if (match(i->first)) {
             i->second();
-            ResetClock;
             return;
         }
     }
@@ -665,7 +664,7 @@ void cache_putback() {
 
 void sys::exit() {
     Return("bye");
-//    log();//FIXME to debug
+    log();//FIXME to debug
 //    cache_putback();
     std::exit(0);
 }
