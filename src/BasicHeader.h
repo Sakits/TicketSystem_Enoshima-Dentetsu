@@ -298,8 +298,8 @@ struct User {
     MailAddr mailAddr;
     Password password;
     Privilege privilege;
-    int maxnumInUserOrder = 0;
-    int curAddressInUserOrder = 0;
+    int maxnumInUserOrder = -2;
+    int curAddressInUserOrder = -2;
     User() = default;
 
     User(Privilege privilege, const Name &name, const MailAddr &mailAddr,

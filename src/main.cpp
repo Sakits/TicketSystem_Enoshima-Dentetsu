@@ -239,7 +239,7 @@ void user::login(Username username, Password password) {
     const User &foundUser = existUsers.getItem(CurUserPair.first);
     if (foundUser.password != password) Error("WRONG PASSWORD");
     if (!loginUsers.insert({username, foundUser.privilege}))Error("USER HAS ALREADY LOGIN");
-    userOrders.getAddressAndMAxNum(username, foundUser.curAddressInUserOrder, foundUser.maxnumInUserOrder);
+    userOrders.getAddressAndMaxNum(username, foundUser.curAddressInUserOrder, foundUser.maxnumInUserOrder);
     Return(0);
 }
 //buyticket只改变loginUser的orderNumth，在logout或exit的时候才写回所有orderNumth。这可以在每次buyticket都节约一次写existUser的时间。

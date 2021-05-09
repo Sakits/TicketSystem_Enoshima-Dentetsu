@@ -14,7 +14,7 @@
  * fans为答案文件路径，与AnsCheck联合使用（当AnsCheck被关闭时自动失效）
  */
 #define AnsCheck
-static constexpr int litnum = 1;
+static constexpr int litnum = 2;
 static constexpr int bignum = 3;
 
 #define FileI { std::freopen((std::string("../data/basic_") + char(bignum + '0') + '/' + char(litnum + '0') + ".in").c_str(), "r", stdin);};

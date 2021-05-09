@@ -16,90 +16,78 @@
 
 // Hash 将 Key 映射为一个 unsigned long long
 template<class Key, class Value, class Hash>
-class OuterUniqueUnorderMap
-{
+class OuterUniqueUnorderMap {
 private:
     char file[30];
     BPlusTree bpt;
-    std :: fstream fio;
+    std::fstream fio;
 
 public:
-    OuterUniqueUnorderMap(const char* _datafile, const char* _bptfile) : bpt(_bptfile)
-    {
+    OuterUniqueUnorderMap(const char *_datafile, const char *_bptfile) : bpt(_bptfile) {
         strcpy(file, _datafile);
-        std :: fstream fin(_datafile, std :: ios :: in | std :: ios :: binary);
-        if (!fin.is_open())
-        {
-            std :: fstream fout(_datafile, std :: ios :: out | std :: ios :: binary);
+        std::fstream fin(_datafile, std::ios::in | std::ios::binary);
+        if (!fin.is_open()) {
+            std::fstream fout(_datafile, std::ios::out | std::ios::binary);
             fout.close();
         }
         fin.close();
 
-        fio.open(_datafile, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
+        fio.open(_datafile, std::ios::in | std::ios::out | std::ios::binary);
     };
 
-    ~OuterUniqueUnorderMap() {fio.close();}
+    ~OuterUniqueUnorderMap() { fio.close(); }
 
-    bool insert(const std::pair<Key, Value> &pair)
-    {
-        fio.seekg(0, std :: ios :: end);
+    bool insert(const std::pair<Key, Value> &pair) {
+        fio.seekg(0, std::ios::end);
         int pos = fio.tellp();
 
         bool flag = bpt.insert(Hash()(pair.first), pos, 1);
         if (flag)
-            fio.write(reinterpret_cast<const char*>(&(pair.second)), sizeof(pair.second));
+            fio.write(reinterpret_cast<const char *>(&(pair.second)), sizeof(pair.second));
 
         return flag;
     }
 
-    bool erase(const Key &key)
-    {
+    bool erase(const Key &key) {
         return bpt.erase(Hash()(key));
     }
 
-    std::pair<int, bool> find(const Key &key)
-    {
+    std::pair<int, bool> find(const Key &key) {
         int f = bpt.query(Hash()(key));
         return {f, ~f ? 1 : 0};
     }
 
-    Value getItem(int pos)
-    {
+    Value getItem(int pos) {
         Value ans;
-        fio.seekg(pos, std :: ios :: beg);
-        fio.read(reinterpret_cast<char*>(&ans), sizeof(ans));
+        fio.seekg(pos, std::ios::beg);
+        fio.read(reinterpret_cast<char *>(&ans), sizeof(ans));
         return ans;
     }
 
-    void setItem(int pos, const Value &value)
-    {
-        fio.seekg(pos, std :: ios :: beg);
-        fio.write(reinterpret_cast<const char*>(&value), sizeof(value));
+    void setItem(int pos, const Value &value) {
+        fio.seekg(pos, std::ios::beg);
+        fio.write(reinterpret_cast<const char *>(&value), sizeof(value));
     }
 
-    int get_size() const
-    {
+    int get_size() const {
         return bpt.get_size();
     }
 
-    bool empty() const
-    {
+    bool empty() const {
         return bpt.get_size() == 0;
     }
 
-    void clear()
-    {
+    void clear() {
         fio.close();
 
-        std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
+        std::fstream fout(file, std::ios::out | std::ios::binary);
         fout.close();
 
-        fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
+        fio.open(file, std::ios::in | std::ios::out | std::ios::binary);
 
         bpt.clear();
     }
 };
-
 
 
 //stub 唐嘉铭 todo
@@ -139,10 +127,8 @@ private:
 };
 
 
-
-
 template<class T>
-struct InnerList{
+struct InnerList {
     struct Node {
         T t;
         Node *n = nullptr;
@@ -151,18 +137,20 @@ struct InnerList{
         Node() {}
 
         Node(T t, Node *n, Node *p) : t(t), n(n), p(p) {}
-    } ;
+    };
+
     Node *root = nullptr;
     int num = 0;
 
-    int size(){return num;}
+    int size() { return num; }
 
     InnerList() {
         root = new Node();
     }
 
-    InnerList(const InnerList&) = delete;
-    InnerList& operator=(const InnerList&) = delete;
+    InnerList(const InnerList &) = delete;
+
+    InnerList &operator=(const InnerList &) = delete;
 
     virtual ~InnerList() {
         while (root) {
@@ -172,32 +160,30 @@ struct InnerList{
         }
     }
 
-    void writeToFile(std::fstream& file, Address address = 0, int timesOfSpace = 1){
-        file.seekp(address);
-
+    void writeToFile(std::fstream &file, Address address, int timesOfSpace = 1) {
         const int bitnum = sizeof(T) * size() * timesOfSpace;
-        char* fixzero = new char[bitnum]{0};
+        if (!bitnum) return;
+        file.seekg(address);
+        char *fixzero = new char[bitnum]{0};
         int i = -int(sizeof(T));
-        while (root) {
-            Node *nextroot = root->n;
-            if (nextroot) memcpy(fixzero+(i+=sizeof(T)), reinterpret_cast<char *>(&nextroot->t), sizeof(T));
-            root= nextroot;
+        auto fakeroot = root;
+        while (fakeroot) {
+            Node *nextroot = fakeroot->n;
+            if (nextroot) memcpy(fixzero + (i += sizeof(T)), reinterpret_cast<char *>(&nextroot->t), sizeof(T));
+            fakeroot = nextroot;
         }
         file.write(reinterpret_cast<const char *>(fixzero), bitnum);
-        delete [] fixzero;
-        file.close();
+        delete[] fixzero;
     }
 
 
-
-
-
-    friend InnerList* mergeList(InnerList* dist, InnerList*src){
+    friend InnerList *mergeList(InnerList *dist, InnerList *src) {
         auto distlast = dist->root;
-        while(distlast->n) distlast = distlast->n;//better 随便写个O(100),估计没事
+        while (distlast->n) distlast = distlast->n;//better 随便写个O(100),估计没事
         auto srcroot = src->root;
-        distlast->n =  srcroot->n;
-        if(srcroot->n)srcroot->n->p = distlast;
+        distlast->n = srcroot->n;
+        if (srcroot->n)srcroot->n->p = distlast;
+        dist->num += src->num;
         delete srcroot;
         return dist;
     }
@@ -263,8 +249,8 @@ struct InnerList{
         return nullptr;
     }
 
-    void clear(){
-        Node * tmp = root->n;
+    void clear() {
+        Node *tmp = root->n;
         while (tmp) {
             Node *nexttmp = tmp->n;
             delete tmp;
@@ -274,12 +260,11 @@ struct InnerList{
         num = 0;
     }
 
-    void print() const{
-        for(auto it = begin(); it != end(); ++it) std::cout << *it << " ";
+    void print() const {
+        for (auto it = begin(); it != end(); ++it) std::cout << *it << " ";
         std::cout << std::endl;
     }
 };
-
 
 
 template<class Key, class Value, class Hash>
@@ -287,33 +272,35 @@ class InnerOuterMultiUnorderMap {
 public:
     FileName fileName;
     std::fstream file;
-    std::function<void(Key,Address,int)> setData;
-    const int THRESHOLD = 100;
+    std::function<void(Key, Address, int)> setData;
+    static constexpr int THRESHOLD = 1;//memo 1 是debug用的数据，到时候再改回来
 
-    InnerOuterMultiUnorderMap(FileName fileName, std::function<void(Key,Address,int)> setData):fileName(fileName), setData(setData){
+    InnerOuterMultiUnorderMap(FileName fileName, std::function<void(Key, Address, int)> setData) : fileName(fileName),
+                                                                                                   setData(setData) {
         fcreate(fileName);
-        file.open(fileName, std::ios::in|std::ios::out|std::ios::binary);
+        file.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
     }
-    ~InnerOuterMultiUnorderMap(){
+
+    ~InnerOuterMultiUnorderMap() {
         //better 已偷懒：在一次文件打开后，login的人logout以后也不会再刷回去，只有结束的时候才刷。这会导致小幅的多余内存浪费。
         //...对内部所有人进行刷数据
-        for(auto it = keySetter.begin(); it != keySetter.end(); ++it) {
-            Data* data = mapper.find(*it);
+        for (auto it = keySetter.begin(); it != keySetter.end(); ++it) {
+            Data *data = mapper.find(*it);//待改
             setData(*it, data->address, data->maxnum);
         }
-        for(auto it = listSetter.begin(); it != listSetter.end(); ++it) delete (*it);
+        for (auto it = listSetter.begin(); it != listSetter.end(); ++it) delete (*it);
         file.close();
     }
 
 
     void insert(const std::pair<Key, Value> &pair) {
-        InnerList<Value>* valueList = mapper.find(pair.first)->listptr;
+        InnerList<Value> *valueList = mapper.find(pair.first)->listptr;
         valueList->push_front(pair.second);
-        if (valueList->size()>THRESHOLD){
-            Data* dataptr = mapper.find(pair.first);
-            if(dataptr->maxnum > valueList->size()){
+        if (valueList->size() > THRESHOLD) {
+            Data *dataptr = mapper.find(pair.first);
+            if (dataptr->maxnum > valueList->size()) {
                 valueList->writeToFile(file, dataptr->address);
-            }else {
+            } else {
                 file.seekg(0, std::ios::end);
                 dataptr->maxnum *= 2;
                 dataptr->address = file.tellg();
@@ -323,73 +310,89 @@ public:
         }
     }
 
-    typedef Value* Iterator;
+    typedef Value *Iterator;
 
     Iterator find(Key key, int n) {//找到第n新插入的东西。
-        InnerList<Value>* valueList = find(key);
-        if(n < 1 || n > valueList->size()) return nullptr;
+        InnerList<Value> *valueList = find(key);
+        if (n < 1 || n > valueList->size()) return nullptr;
         auto it = valueList->begin();
-        while(--n) ++it;
+        while (--n) ++it;
         return &(it.ptr->t);
     }
 
-    void getAddressAndMAxNum(Key key, Address address, int maxnum) {
-        InnerList<Value>* listptr = new InnerList<Value>();
+    void getAddressAndMaxNum(Key key, Address address, int maxnum) {
+        InnerList<Value> *listptr = new InnerList<Value>();
         listSetter.push_front(listptr);
         keySetter.push_front(key);
-        mapper.insert({key,Data(listptr,address, maxnum)});
+        if (address == -2) {
+//            if(file.eofbit)std::exit(0);
+            file.seekg(0, std::ios::end);
+            assert(file.badbit);
+            address = file.tellp();
+            constexpr char allzero[THRESHOLD * sizeof(Value)] = {0};
+            file.write(allzero, THRESHOLD * sizeof(Value));
+            maxnum = THRESHOLD;
+        }
+        mapper.insert({key, Data(listptr, address, maxnum)});
     };//caution login 的时候注意get一下
 
 
 
-    InnerList<Value>* readFromFile(std::fstream& file, Address address, int maxnum){
-        if(maxnum == 0) {
+    InnerList<Value> *readFromFile(std::fstream &file, Address address, int maxnum) {
+        if (maxnum == 0) {
             return new InnerList<Value>();//估计用不到，输入不会是0吧？
         }
         file.seekg(address);
 
         const int bitnum = sizeof(Value) * maxnum;
-        char* fixzero = new char[bitnum]{0};
+        char *fixzero = new char[bitnum]{0};
         file.read(fixzero, bitnum);
-        int lastNotZero = bitnum-1;
-        while (!fixzero[lastNotZero]) --lastNotZero;
-        InnerList<Value>* listptr = new InnerList<Value>();
-        for (int i = lastNotZero/sizeof(Value); ~i ;--i) {
+        int lastNotZero = bitnum - 1;
+        while (!fixzero[lastNotZero]) {
+            if (lastNotZero == 0) return new InnerList<Value>();
+            --lastNotZero;
+        }
+        InnerList<Value> *listptr = new InnerList<Value>();
+        for (int i = lastNotZero / sizeof(Value); ~i; --i) {
             Value t;
-            memcpy(reinterpret_cast<char*>(&t), fixzero + i * sizeof(Value), sizeof(Value));
+            memcpy(reinterpret_cast<char *>(&t), fixzero + i * sizeof(Value), sizeof(Value));
             listptr->push_front(t);
         }
-        delete [] fixzero;
-        file.close();
+        delete[] fixzero;
         return listptr;
     }
 
-    InnerList<Value>* find(Key key) {
+    InnerList<Value> *find(Key key) {
         auto iter = mapper.find(key);
-        InnerList<Value>* listptr = readFromFile(file, iter->address, iter->maxnum);
+        InnerList<Value> *listptr = readFromFile(file, iter->address, iter->maxnum);
         mergeList(iter->listptr, listptr);
         return iter->listptr;
     };
 
     void clear() {
-        for(auto it = listSetter.begin(); it != listSetter.end(); ++it) delete (*it);//todo 还要全setAddressAndMAxNum(Key key){
+        for (auto it = listSetter.begin(); it != listSetter.end(); ++it)
+            delete (*it);//todo 还要全setAddressAndMAxNum(Key key){
         mapper.clear();
         file.close();
-        file.open(fileName,std::ios::trunc);
+        file.open(fileName, std::ios::trunc);
+        file.close();
+        file.open(fileName, std::ios::out | std::ios::in | std::ios::binary);
     }
 
 //todo 还没可持久化
 //better 空间太大刷入外存 接口不变 这跟Queue的原理应当类似
 private:
-    struct Data{
-        InnerList<Value>* listptr = nullptr;
+    struct Data {
+        InnerList<Value> *listptr = nullptr;
         Address address = 0;
         int maxnum = 0;
+
         Data(InnerList<Value> *listptr, Address address, int maxnum) : listptr(listptr), address(address),
                                                                        maxnum(maxnum) {}
     };
+
     InnerUniqueUnorderMap<Key, Data, Hash> mapper;
-    InnerList<InnerList<Value>*> listSetter;
+    InnerList<InnerList<Value> *> listSetter;
     InnerList<Key> keySetter;
 };
 
@@ -412,10 +415,10 @@ struct Queue : InnerList<T> {
 
         file.open(fileName, std::ios::in | std::ios::binary);
         assert(file);
-        file.seekg(0,std::ios::end);
+        file.seekg(0, std::ios::end);
         file.tellg();
         const int bitnum = file.tellg();
-        if(bitnum!=0) {
+        if (bitnum != 0) {
             file.seekg(0, std::ios::beg);
             char *fixzero = new char[bitnum]{0};
             file.read(fixzero, bitnum);
@@ -423,17 +426,17 @@ struct Queue : InnerList<T> {
 
             for (int i = lastNotZero / sizeof(T); ~i; --i) {
                 T t;
-                memcpy(reinterpret_cast<char*>(&t), fixzero + i * sizeof(T), sizeof(T));
+                memcpy(reinterpret_cast<char *>(&t), fixzero + i * sizeof(T), sizeof(T));
                 this->push_front(t);
             }
             delete[] fixzero;
 
         }
-            file.close();
+        file.close();
     }
 
     virtual ~Queue() override {
-        file.open(fileName,std::ios::trunc);
+        file.open(fileName, std::ios::trunc);
         InnerList<T>::writeToFile(file, 0);
         file.close();
     }
@@ -441,10 +444,10 @@ struct Queue : InnerList<T> {
 };
 
 
-struct HashString{
-    unsigned long long operator()(const std::string &str){
+struct HashString {
+    unsigned long long operator()(const std::string &str) {
         int ans = 0;
-        for(int i = 0; str[i]!='\0'; ++i) ans = ans * 19260817 + str[i];
+        for (int i = 0; str[i] != '\0'; ++i) ans = ans * 19260817 + str[i];
         return ans;
     }
 };
