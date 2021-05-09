@@ -8,7 +8,7 @@
 
 class BPlusTree
 {
-    static const int max_size = 40, block_size = max_size / 2;
+    static const int max_size = 4, block_size = max_size / 2;
     using ull = unsigned long long;
 
 private:
@@ -100,23 +100,37 @@ public:
         strcpy(file, file_name);
 
         std :: fstream fin (file, std :: ios :: in | std :: ios :: binary);
+
         if (!fin.is_open())
         {
             std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
+            fout.write(reinterpret_cast<char *>(&size), sizeof(size));
             Node initnode;
             fout.write(reinterpret_cast<char *>(&initnode), sizeof(initnode));
             fout.close();
         }
+        else
+        {
+            fin.read(reinterpret_cast<char *>(&size), sizeof(size));
+            fin.close();
+        }
+        
         fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
     }
 
-    ~BPlusTree() {fio.close();}
+    ~BPlusTree() 
+    {
+        fio.seekg(0, std :: ios :: beg);
+        fio.write(reinterpret_cast<char*>(&size), sizeof(size));
+        fio.close();
+    }
 
     void clear()
     {
         fio.close();
 
         std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
+        fout.write(reinterpret_cast<char *>(&size), sizeof(size));
         Node initnode;
         fout.write(reinterpret_cast<char *>(&initnode), sizeof(initnode));
         fout.close();
@@ -128,7 +142,7 @@ public:
 
     int get_size() const {return size;}
 
-    bool insert(const ull _key, int file_pos, bool unique = 0, int x = 0, Node* const faptr = nullptr)
+    bool insert(const ull _key, int file_pos, bool unique = 0, int x = 4, Node* const faptr = nullptr)
     {
         Node now; file_read(x, now);
 
@@ -181,7 +195,7 @@ public:
             {
                 Node root; int root_pos = get_file_end();
                 x = root_pos; file_write(nxt_pos + sizeof(int), x);
-                root_pos = 0;
+                root_pos = 4;
                 root.isleaf = 0;
                 root.size = 2;
                 root.child[0] = x; root.child[1] = nxt_pos;
@@ -215,7 +229,7 @@ public:
         return 1;
     }
 
-    bool erase(const ull _key, int file_pos = -1, int x = 0, Node* const faptr = nullptr)
+    bool erase(const ull _key, int file_pos = -1, int x = 4, Node* const faptr = nullptr)
     {
         Node now; file_read(x, now);
 
@@ -429,7 +443,7 @@ public:
         return 1;
     }
 
-    int query(const ull _key, int x = 0)
+    int query(const ull _key, int x = 4)
     {
         Node now; file_read(x, now);
 
