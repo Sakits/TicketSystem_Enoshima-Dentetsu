@@ -11,6 +11,8 @@
 #include "filemanip.h"
 #include "BPlusTree.hpp"
 #include <set>
+#include <functional>
+#include <ostream>
 
 // Hash 将 Key 映射为一个 unsigned long long
 template<class Key, class Value, class Hash>
@@ -139,8 +141,6 @@ private:
 
 
 
-
-
 template<class T>
 struct InnerList{
     struct Node {
@@ -170,6 +170,36 @@ struct InnerList{
             delete root;
             root = nextroot;
         }
+    }
+
+    void writeToFile(std::fstream& file, Address address = 0, int timesOfSpace = 1){
+        file.seekp(address);
+
+        const int bitnum = sizeof(T) * size() * timesOfSpace;
+        char* fixzero = new char[bitnum]{0};
+        int i = -int(sizeof(T));
+        while (root) {
+            Node *nextroot = root->n;
+            if (nextroot) memcpy(fixzero+(i+=sizeof(T)), reinterpret_cast<char *>(&nextroot->t), sizeof(T));
+            root= nextroot;
+        }
+        file.write(reinterpret_cast<const char *>(fixzero), bitnum);
+        delete [] fixzero;
+        file.close();
+    }
+
+
+
+
+
+    friend InnerList* mergeList(InnerList* dist, InnerList*src){
+        auto distlast = dist->root;
+        while(distlast->n) distlast = distlast->n;//better 随便写个O(100),估计没事
+        auto srcroot = src->root;
+        distlast->n =  srcroot->n;
+        if(srcroot->n)srcroot->n->p = distlast;
+        delete srcroot;
+        return dist;
     }
 
 
@@ -255,48 +285,112 @@ struct InnerList{
 template<class Key, class Value, class Hash>
 class InnerOuterMultiUnorderMap {
 public:
-    InnerOuterMultiUnorderMap(){
+    FileName fileName;
+    std::fstream file;
+    std::function<void(Key,Address,int)> setData;
+    const int THRESHOLD = 100;
 
+    InnerOuterMultiUnorderMap(FileName fileName, std::function<void(Key,Address,int)> setData):fileName(fileName), setData(setData){
+        fcreate(fileName);
+        file.open(fileName, std::ios::in|std::ios::out|std::ios::binary);
     }
     ~InnerOuterMultiUnorderMap(){
-        clear();
+        //better 已偷懒：在一次文件打开后，login的人logout以后也不会再刷回去，只有结束的时候才刷。这会导致小幅的多余内存浪费。
+        //...对内部所有人进行刷数据
+        for(auto it = keySetter.begin(); it != keySetter.end(); ++it) {
+            Data* data = mapper.find(*it);
+            setData(*it, data->address, data->maxnum);
+        }
+        for(auto it = listSetter.begin(); it != listSetter.end(); ++it) delete (*it);
+        file.close();
     }
 
+
     void insert(const std::pair<Key, Value> &pair) {
-        InnerList<Value>* keylist = find(pair.first);
-        keylist->push_front(pair.second);
+        InnerList<Value>* valueList = mapper.find(pair.first)->listptr;
+        valueList->push_front(pair.second);
+        if (valueList->size()>THRESHOLD){
+            Data* dataptr = mapper.find(pair.first);
+            if(dataptr->maxnum > valueList->size()){
+                valueList->writeToFile(file, dataptr->address);
+            }else {
+                file.seekg(0, std::ios::end);
+                dataptr->maxnum *= 2;
+                dataptr->address = file.tellg();
+                valueList->writeToFile(file, dataptr->address, 2);
+            }
+            valueList->clear();
+        }
     }
 
     typedef Value* Iterator;
 
     Iterator find(Key key, int n) {//找到第n新插入的东西。
-        InnerList<Value>* keylist = find(key);
-        if(n < 1 || n > keylist->size()) return nullptr;
-        auto it = keylist->begin();
+        InnerList<Value>* valueList = find(key);
+        if(n < 1 || n > valueList->size()) return nullptr;
+        auto it = valueList->begin();
         while(--n) ++it;
         return &(it.ptr->t);
     }
 
+    void getAddressAndMAxNum(Key key, Address address, int maxnum) {
+        InnerList<Value>* listptr = new InnerList<Value>();
+        listSetter.push_front(listptr);
+        keySetter.push_front(key);
+        mapper.insert({key,Data(listptr,address, maxnum)});
+    };//caution login 的时候注意get一下
+
+
+
+    InnerList<Value>* readFromFile(std::fstream& file, Address address, int maxnum){
+        if(maxnum == 0) {
+            return new InnerList<Value>();//估计用不到，输入不会是0吧？
+        }
+        file.seekg(address);
+
+        const int bitnum = sizeof(Value) * maxnum;
+        char* fixzero = new char[bitnum]{0};
+        file.read(fixzero, bitnum);
+        int lastNotZero = bitnum-1;
+        while (!fixzero[lastNotZero]) --lastNotZero;
+        InnerList<Value>* listptr = new InnerList<Value>();
+        for (int i = lastNotZero/sizeof(Value); ~i ;--i) {
+            Value t;
+            memcpy(reinterpret_cast<char*>(&t), fixzero + i * sizeof(Value), sizeof(Value));
+            listptr->push_front(t);
+        }
+        delete [] fixzero;
+        file.close();
+        return listptr;
+    }
+
     InnerList<Value>* find(Key key) {
         auto iter = mapper.find(key);
-        if (iter == nullptr) {
-            auto listptr = new InnerList<Value>();
-            setter.push_front(listptr);
-            mapper.insert({key,listptr});
-            return *(mapper.find(key));
-        }
-        return *iter;
+        InnerList<Value>* listptr = readFromFile(file, iter->address, iter->maxnum);
+        mergeList(iter->listptr, listptr);
+        return iter->listptr;
     };
 
     void clear() {
-        for(auto it = setter.begin(); it != setter.end(); ++it) delete (*it);
+        for(auto it = listSetter.begin(); it != listSetter.end(); ++it) delete (*it);//todo 还要全setAddressAndMAxNum(Key key){
+        mapper.clear();
+        file.close();
+        file.open(fileName,std::ios::trunc);
     }
 
 //todo 还没可持久化
 //better 空间太大刷入外存 接口不变 这跟Queue的原理应当类似
 private:
-    InnerUniqueUnorderMap<Key, InnerList<Value>*, Hash> mapper;
-    InnerList<InnerList<Value>*> setter;
+    struct Data{
+        InnerList<Value>* listptr = nullptr;
+        Address address = 0;
+        int maxnum = 0;
+        Data(InnerList<Value> *listptr, Address address, int maxnum) : listptr(listptr), address(address),
+                                                                       maxnum(maxnum) {}
+    };
+    InnerUniqueUnorderMap<Key, Data, Hash> mapper;
+    InnerList<InnerList<Value>*> listSetter;
+    InnerList<Key> keySetter;
 };
 
 
@@ -308,36 +402,42 @@ private:
 template<class T>
 struct Queue : InnerList<T> {
     FileName fileName;
+    std::fstream file;
 
     using Node = typename InnerList<T>::Node;
     using Iterator = typename InnerList<T>::Iterator;
 
-    Queue(FileName fileName) : fileName(fileName) {
+    Queue(FileName fileName) : fileName(fileName) {//better 构建队列需不需要100w次文件读写？不过这显然不是瓶颈，但是可玩。
         fcreate(fileName);
-        std::ifstream file(fileName, std::ios::in | std::ios::binary);
+
+        file.open(fileName, std::ios::in | std::ios::binary);
         assert(file);
-        T t;
-        Node *constructor = InnerList<T>::root;
-        while (file) {
-            fread(file, t);
-            if(file)
-                constructor = constructor->n = new Node(t, nullptr, constructor);
+        file.seekg(0,std::ios::end);
+        file.tellg();
+        const int bitnum = file.tellg();
+        if(bitnum!=0) {
+            file.seekg(0, std::ios::beg);
+            char *fixzero = new char[bitnum]{0};
+            file.read(fixzero, bitnum);
+            int lastNotZero = bitnum - 1;
+
+            for (int i = lastNotZero / sizeof(T); ~i; --i) {
+                T t;
+                memcpy(reinterpret_cast<char*>(&t), fixzero + i * sizeof(T), sizeof(T));
+                this->push_front(t);
+            }
+            delete[] fixzero;
+
         }
-        file.close();
+            file.close();
     }
 
     virtual ~Queue() override {
-        fclear(fileName);
-        std::ofstream file(fileName, std::ios::out | std::ios::binary);
-        assert(file);
-        while (InnerList<T>::root) {
-            Node *nextroot = InnerList<T>::root->n;
-            if (nextroot) fwrite(file, nextroot->t);
-            InnerList<T>::root= nextroot;
-        }
-        file.close();//fixme 开了文件就别关了，退出再关。
+        file.open(fileName,std::ios::trunc);
+        InnerList<T>::writeToFile(file, 0);
+        file.close();
     }
-    //better 加功能：空间太大刷入外存。接口不变。
+    //maybe 加功能：空间太大刷入外存。接口不变。
 };
 
 

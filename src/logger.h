@@ -8,15 +8,17 @@
 
 #include <iostream>
 #include "filemanip.h"
-#include "BasicHeader.h"
 /*
  * AnsCheck为文件对标机开关，需要把data文件夹放入目录使用
  * FileI为读入文件路径，如果想控制台输入只需要把这行注掉
  * fans为答案文件路径，与AnsCheck联合使用（当AnsCheck被关闭时自动失效）
  */
 #define AnsCheck
-#define FileI { std::freopen("../data/basic_6/1.in", "r", stdin);};
-        std::fstream fans("../data/basic_6/1.out");
+static constexpr int litnum = 1;
+static constexpr int bignum = 3;
+
+#define FileI { std::freopen((std::string("../data/basic_") + char(bignum + '0') + '/' + char(litnum + '0') + ".in").c_str(), "r", stdin);};
+        std::fstream fans((std::string("../data/basic_") + char(bignum + '0') + '/' + char(litnum + '0') + ".out").c_str());
 #define TimeTracing
 #define MagnitudeTracing
 
@@ -82,17 +84,14 @@ clock_t tClockTimer = clock();
 
 //-----------------------------------------------MagnitudeTracing
 #ifdef MagnitudeTracing
-int maxLoginUserNum = 0;
-int LoginUserNum = 0;
+
 std::map<const char *, std::pair<int,int>> mag_recorder;
 #define InTrace(x) ++mag_recorder[x].first;if(mag_recorder[x].second < mag_recorder[x].first)mag_recorder[x].second = mag_recorder[x].first
 #define OutTrace(x) --mag_recorder[x].first
-#define WaitQueueLengthTracing
 #define DisplayMagnitude for(auto c_p:mag_recorder)main_log << c_p.first << "\t" << c_p.second.second << std::endl
 #else
 #define InTrace
 #define OutTrace
-#define WaitQueueLengthTracing
 #define DisplayMagnitude
 #endif
 //todo 增加其它数据量级检测功能 如补票队长

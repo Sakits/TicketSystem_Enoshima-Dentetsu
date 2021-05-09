@@ -9,6 +9,7 @@
 #include <sstream>
 #include "logger.h"
 #include "vector.hpp"
+#include "BasicHeader.h"
 #include <functional>
 
 void initialize();
@@ -81,7 +82,7 @@ int main() {
 std::string input;
 
 void initialize() {
-    sys::noReturnClean();//FIXME used to debug
+    if(litnum==1)sys::noReturnClean();//FIXME used to debug
 }
 
 void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成static使她快20倍，而即使这样也特别的慢。
@@ -238,6 +239,7 @@ void user::login(Username username, Password password) {
     const User &foundUser = existUsers.getItem(CurUserPair.first);
     if (foundUser.password != password) Error("WRONG PASSWORD");
     if (!loginUsers.insert({username, foundUser.privilege}))Error("USER HAS ALREADY LOGIN");
+    userOrders.getAddressAndMAxNum(username, foundUser.curAddressInUserOrder, foundUser.maxnumInUserOrder);
     Return(0);
 }
 //buyticket只改变loginUser的orderNumth，在logout或exit的时候才写回所有orderNumth。这可以在每次buyticket都节约一次写existUser的时间。
@@ -649,8 +651,10 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
 void sys::noReturnClean() {
     cleanlog();
     existUsers.clear();
+    existTrains.clear();
     loginUsers.clear();
     waitQueue.clear();
+    userOrders.clear();
 }
 
 void sys::clean() {
@@ -665,6 +669,7 @@ void cache_putback() {
 void sys::exit() {
     Return("bye");
     log();//FIXME to debug
+//    noReturnClean();
 //    cache_putback();
     std::exit(0);
 }

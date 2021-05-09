@@ -298,7 +298,8 @@ struct User {
     MailAddr mailAddr;
     Password password;
     Privilege privilege;
-
+    int maxnumInUserOrder = 0;
+    int curAddressInUserOrder = 0;
     User() = default;
 
     User(Privilege privilege, const Name &name, const MailAddr &mailAddr,
@@ -441,6 +442,7 @@ std::unordered_map<StationName, std::set<TrainID>, std::hash<std::string>> stmap
 void addPassedTrain(StationName stationName, TrainID trainID) {
     //stub
     stmap[stationName].insert(trainID);
+    mag_recorder["stationNum"].second = stmap.size();
 }
 
 std::set<TrainID> findCommonTrain(StationName fromStation, StationName toStation) {
@@ -471,7 +473,14 @@ std::set<midStation> findMidStation(StationName fromStation, StationName toStati
 
 }
 
-InnerOuterMultiUnorderMap<Username, Order, std::hash<std::string>> userOrders;
+InnerOuterMultiUnorderMap<Username, Order, std::hash<std::string>> userOrders("user_orders.dat", [](Username username, Address address, int maxnum){
+                                                                                  auto ptr = existUsers.find(username);
+                                                                                  User user = existUsers.getItem(ptr.first);
+                                                                                  user.curAddressInUserOrder = address;
+                                                                                  user.maxnumInUserOrder = maxnum;
+                                                                                  existUsers.setItem(ptr.first, user);
+}
+);
 //FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.
 
 //typedef OuterUniqueUnorderMap<TrainID, Train, HashString>::Iterator TrainPtr;
