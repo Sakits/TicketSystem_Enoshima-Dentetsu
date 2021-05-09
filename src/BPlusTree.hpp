@@ -8,7 +8,7 @@
 
 class BPlusTree
 {
-    static const int max_size = 4, block_size = max_size / 2;
+    static const int max_size = 40, block_size = max_size / 2;
     using ull = unsigned long long;
 
 private:
@@ -127,6 +127,7 @@ public:
 
     void clear()
     {
+        prex = -1; size = 0;
         fio.close();
 
         std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
@@ -136,8 +137,6 @@ public:
         fout.close();
 
         fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
-
-        prex = -1; size = 0;
     }
 
     int get_size() const {return size;}
