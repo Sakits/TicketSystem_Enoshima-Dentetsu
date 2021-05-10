@@ -186,6 +186,15 @@ struct MonthDate {
 
     MonthDate(std::string str) : month(str[1] - '0'), date((str[3] - '0') * 10 + str[4] - '0') {}
 
+    explicit MonthDate(int x){
+        month = 6;
+        date = x;
+        while(date > calendar[month]){
+            date -= calendar[month];
+            ++month;
+        }
+    }
+
     MonthDate &operator++() {
         testvaild();
         if (date == calendar[month]) {
@@ -197,10 +206,19 @@ struct MonthDate {
     }
 
     MonthDate &operator+=(int x) {
-        while (x--)++*this;
+        date += x;
+        while(date > calendar[month]){
+            date -= calendar[month];
+            ++month;
+        }
         return *this;
     }
 
+    MonthDate operator+(int x)const{
+        MonthDate tmp(*this);
+        tmp += x;
+        return tmp;
+    }
 
     explicit operator int() const {
         testvaild();
@@ -311,7 +329,7 @@ struct User {
 
 InnerUniqueUnorderMap<Username, Privilege, std::hash<std::string>> loginUsers;
 //better 订单可以放在内存里，等logout或者exit时写回去吗？那样就要有通知补票的机制，怎么补呢？对于有保证login的操作，都可以如此做吗？
-OuterUniqueUnorderMap<Username, User, HashString> existUsers("existUsers.dat","bpt_existUsers.dat");
+OuterUniqueUnorderMap<Username, User, HashString> existUsers("existUsers.dat");
 
 
 typedef cStringType<22> TrainID;
@@ -363,8 +381,7 @@ struct Train {
         }
         startSaleDate = _saleDate[0], endSaleDate = _saleDate[1];
 
-        duration = int(_saleDate[1]) - int(_saleDate[0]) + 1;
-        for (int i = 0; i < duration; ++i)
+        for (int i = int(_saleDate[0]); i <= int(_saleDate[1]); ++i)
             for (int j = 0; j < _stationNum - 1; ++j)
                 ticketNums[i][j] = _seatNum;
     }
@@ -378,7 +395,7 @@ struct Train {
 };
 
 
-OuterUniqueUnorderMap<TrainID, Train, HashString> existTrains("existTrains.dat", "bpt_existTrains.dat");
+OuterUniqueUnorderMap<TrainID, Train, HashString> existTrains("existTrains.dat");
 
 typedef cStringType<10> Status;
 

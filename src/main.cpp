@@ -393,7 +393,7 @@ void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
                 .arrivingTimes[i]) : "xx-xx xx:xx") + " -> " +
                ((i + 1 != train.stationNum) ? std::string(FullDate(startingMonthDate, train.startTime) += train
                        .leavingTimes[i]) : "xx-xx xx:xx") + " " + std::to_string(train.prices[i]) + " " +
-               ((i + 1 != train.stationNum) ? std::to_string(train.ticketNums[int(startingMonthDate) - int(train.startSaleDate)][i]) : "x"));
+               ((i + 1 != train.stationNum) ? std::to_string(train.ticketNums[int(startingMonthDate)][i]) : "x"));
     }
 }
 
@@ -442,10 +442,9 @@ struct OrderCalculator {
         const int fromint = train.findStation(fromStation), toint = train.findStation(toStation);
         const PassedMinutes leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];
         HourMinute startTime = train.startTime;
-        int index = int(monthDate) - int(train.startSaleDate) - (startTime += leavingTime);
-        if (index < 0) Error("OUT OF SALEDATE");
-        MonthDate md = train.startSaleDate;
-        MonthDate trainStartDay(md += index);
+        int index = int(monthDate) - (startTime += leavingTime);
+        if (index < int(train.startSaleDate)) Error("OUT OF SALEDATE");
+        const MonthDate trainStartDay(index);
         if (fromint == -1 || toint == -1)Error("CANNOT FIND STATION");
         TicketNum minTicket = 0x3f3f3f3f;
         if(fromint > toint) Error("REVERSED PAIR");

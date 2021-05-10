@@ -114,11 +114,11 @@ public:
             fin.read(reinterpret_cast<char *>(&size), sizeof(size));
             fin.close();
         }
-        
+
         fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
     }
 
-    ~BPlusTree() 
+    ~BPlusTree()
     {
         fio.seekg(0, std :: ios :: beg);
         fio.write(reinterpret_cast<char*>(&size), sizeof(size));

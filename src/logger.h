@@ -14,9 +14,9 @@
  * fans为答案文件路径，与AnsCheck联合使用（当AnsCheck被关闭时自动失效）
  */
 #define AnsCheck
-static constexpr int litnum = 2;
-static constexpr int bignum = 3;
-
+static constexpr int litnum = 1;
+static constexpr int bignum = 2;
+//把火车售票时间段改成绝对日期！
 #define FileI { std::freopen((std::string("../data/basic_") + char(bignum + '0') + '/' + char(litnum + '0') + ".in").c_str(), "r", stdin);};
         std::fstream fans((std::string("../data/basic_") + char(bignum + '0') + '/' + char(litnum + '0') + ".out").c_str());
 #define TimeTracing
@@ -154,7 +154,7 @@ void Return(T thing){
         main_log << RED  << "IWRONG IS: " << mystr << END << std::endl;
         main_log << RED  << "ANSWER IS: " << ansstr << END << std::endl << CUT;
         log();
-//        std::exit(0);
+        std::exit(0);
         freopen("../myin.txt", "r", stdin);
         writeByMyself = true;
     }

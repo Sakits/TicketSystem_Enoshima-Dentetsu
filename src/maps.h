@@ -23,7 +23,7 @@ private:
     std::fstream fio;
 
 public:
-    OuterUniqueUnorderMap(const char *_datafile, const char *_bptfile) : bpt(_bptfile) {
+    OuterUniqueUnorderMap(const char *_datafile) : bpt((std::string("bpt_")+_datafile).c_str()) {
         strcpy(file, _datafile);
         std::fstream fin(_datafile, std::ios::in | std::ios::binary);
         if (!fin.is_open()) {
@@ -272,8 +272,8 @@ class InnerOuterMultiUnorderMap {
 public:
     FileName fileName;
     std::fstream file;
-    std::function<void(Key, Address, int)> setData;
-    static constexpr int THRESHOLD = 1;//memo 1 是debug用的数据，到时候再改回来
+    std::function<void(Key, Address, int)> setData;//存在固有的文件读写方面的问题
+    static constexpr int THRESHOLD = 100;//memo 1 是debug用的数据，到时候再改回来
 
     InnerOuterMultiUnorderMap(FileName fileName, std::function<void(Key, Address, int)> setData) : fileName(fileName),
                                                                                                    setData(setData) {
@@ -294,17 +294,18 @@ public:
 
 
     void insert(const std::pair<Key, Value> &pair) {
-        InnerList<Value> *valueList = mapper.find(pair.first)->listptr;
+        Data *dataptr = mapper.find(pair.first);
+        InnerList<Value> *valueList = dataptr->listptr;
         valueList->push_front(pair.second);
         if (valueList->size() > THRESHOLD) {
-            Data *dataptr = mapper.find(pair.first);
-            if (dataptr->maxnum > valueList->size()) {
+            mergeList(valueList, readFromFile(file, dataptr->address, dataptr->maxnum));
+            if (dataptr->maxnum > valueList->size()) {//刷数据也在find里刷了。之后注意一下。
                 valueList->writeToFile(file, dataptr->address);
             } else {
                 file.seekg(0, std::ios::end);
                 dataptr->maxnum *= 2;
                 dataptr->address = file.tellg();
-                valueList->writeToFile(file, dataptr->address, 2);
+                valueList->writeToFile(file, dataptr->address, 2);//fixme 没把文件的东西拿出来
             }
             valueList->clear();
         }
@@ -347,22 +348,26 @@ public:
         const int bitnum = sizeof(Value) * maxnum;
         char *fixzero = new char[bitnum]{0};
         file.read(fixzero, bitnum);
+
         int lastNotZero = bitnum - 1;
         while (!fixzero[lastNotZero]) {
             if (lastNotZero == 0) return new InnerList<Value>();
             --lastNotZero;
         }
+        //读出后要set0吗？
         InnerList<Value> *listptr = new InnerList<Value>();
         for (int i = lastNotZero / sizeof(Value); ~i; --i) {
             Value t;
             memcpy(reinterpret_cast<char *>(&t), fixzero + i * sizeof(Value), sizeof(Value));
             listptr->push_front(t);
         }
+        memset(fixzero, 0, bitnum);
+        file.write(fixzero, bitnum);
         delete[] fixzero;
         return listptr;
     }
 
-    InnerList<Value> *find(Key key) {
+    InnerList<Value> *find(Key key) {//caution find 出来的链表会即使在内存中栈空间清除吗？ 不然写了这个也白白地没有用。
         auto iter = mapper.find(key);
         InnerList<Value> *listptr = readFromFile(file, iter->address, iter->maxnum);
         mergeList(iter->listptr, listptr);
