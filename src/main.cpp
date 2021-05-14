@@ -9,7 +9,7 @@
 #include <sstream>
 #include "logger.h"
 #include "vector.hpp"
-#include "BasicHeader.h"
+#include "UserTrain.h"
 #include <functional>
 
 void initialize();
@@ -82,7 +82,10 @@ int main() {
 std::string input;
 
 void initialize() {
-    if(litnum==1)sys::noReturnClean();//FIXME used to debug
+    if (litnum == 1) {
+        sys::noReturnClean();//FIXME used to debug
+        cleanlog();
+    }
 }
 
 void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成static使她快20倍，而即使这样也特别的慢。
@@ -181,20 +184,25 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
     };
 
     static std::pair<std::regex, std::function<void()>> arr[17] = {
-            {rule_add_user,       []() {user::add_user(pm(_c), pm(_u), pm(_pu), pm(_nu), pm(_mu), pmint(_g));}},
-            {rule_login,          []() {user::login(pm(_u), pm(_pu));}},
-            {rule_logout,         []() {user::logout(pm(_u));}},
-            {rule_query_profile,  []() {user::query_profile(pm(_c), pm(_u));}},
-            {rule_modify_profile, []() {user::modify_profile(pm(_c), pm(_u), pm(_pu),pm(_nu), pm(_mu),pmint(_g));}},
-            {rule_add_train,      []() {train::add_train(pm(_i), pmint(_n), pmint(_m),pm(_ss), pm(_ps), pm(_x),pm(_ts), pm(_os), pm(_ds),pm(_y));}},
-            {rule_release_train,  []() {train::release_train(pm(_i));}},
-            {rule_query_train,    []() {train::query_train(pm(_i), pm(_d));}},
-            {rule_delete_train,   []() {train::delete_train(pm(_i));}},
-            {rule_query_ticket,   []() {train::query_ticket(pm(_startPlace),pm(_toPlace), pm(_d),pm(_pt));}},
-            {rule_query_transfer, []() {train::query_transfer(pm(_startPlace),pm(_toPlace), pm(_d),pm(_pt));}},
-            {rule_buy_ticket,     []() {train::buy_ticket(pm(_u), pm(_i), pm(_d),pmint(_num), pm(_fromPlace),pm(_toPlace), pm(_qt));}},
-            {rule_query_order,    []() {train::query_order(pm(_u));}},
-            {rule_refund_ticket,  []() {train::refund_ticket(pm(_u), pmint(_num));}},
+            {rule_add_user,       []() { user::add_user(pm(_c), pm(_u), pm(_pu), pm(_nu), pm(_mu), pmint(_g)); }},
+            {rule_login,          []() { user::login(pm(_u), pm(_pu)); }},
+            {rule_logout,         []() { user::logout(pm(_u)); }},
+            {rule_query_profile,  []() { user::query_profile(pm(_c), pm(_u)); }},
+            {rule_modify_profile, []() { user::modify_profile(pm(_c), pm(_u), pm(_pu), pm(_nu), pm(_mu), pmint(_g)); }},
+            {rule_add_train,      []() {
+                train::add_train(pm(_i), pmint(_n), pmint(_m), pm(_ss), pm(_ps), pm(_x), pm(_ts), pm(_os), pm(_ds),
+                                 pm(_y));
+            }},
+            {rule_release_train,  []() { train::release_train(pm(_i)); }},
+            {rule_query_train,    []() { train::query_train(pm(_i), pm(_d)); }},
+            {rule_delete_train,   []() { train::delete_train(pm(_i)); }},
+            {rule_query_ticket,   []() { train::query_ticket(pm(_startPlace), pm(_toPlace), pm(_d), pm(_pt)); }},
+            {rule_query_transfer, []() { train::query_transfer(pm(_startPlace), pm(_toPlace), pm(_d), pm(_pt)); }},
+            {rule_buy_ticket,     []() {
+                train::buy_ticket(pm(_u), pm(_i), pm(_d), pmint(_num), pm(_fromPlace), pm(_toPlace), pm(_qt));
+            }},
+            {rule_query_order,    []() { train::query_order(pm(_u)); }},
+            {rule_refund_ticket,  []() { train::refund_ticket(pm(_u), pmint(_num)); }},
             {rule_log,            []() { log(); }},
             {rule_clean,          []() { sys::clean(); }},
             {rule_exit,           []() { sys::exit(); }}};
@@ -239,7 +247,6 @@ void user::login(Username username, Password password) {
     const User &foundUser = existUsers.getItem(CurUserPair.first);
     if (foundUser.password != password) Error("WRONG PASSWORD");
     if (!loginUsers.insert({username, foundUser.privilege}))Error("USER HAS ALREADY LOGIN");
-    userOrders.getAddressAndMaxNum(username, foundUser.curAddressInUserOrder, foundUser.maxnumInUserOrder);
     Return(0);
 }
 //buyticket只改变loginUser的orderNumth，在logout或exit的时候才写回所有orderNumth。这可以在每次buyticket都节约一次写existUser的时间。
@@ -403,7 +410,7 @@ void train::delete_train(TrainID trainID) {
     ck(trainID);
     //hack 因为是n操作，选择冗余操作
     //getTrain可能抛出异常，先验保证了。
-    if(getTrain(trainID).is_released)Error("DELETE TRAIN IS RELEASED");
+    if (getTrain(trainID).is_released)Error("DELETE TRAIN IS RELEASED");
     existTrains.erase(trainID);
     Return(0);
 }
@@ -428,7 +435,7 @@ struct OrderCalculator {
     Username username;
     TicketNum ticketNum;
     TwoChoice wannaWaitToBuyIfNoEnoughTicket;
-    decltype(waitQueue.begin()) *ititer;
+    decltype(waitQueue.begin()) *orderIterIter;
 //    midStation
 
 
@@ -438,50 +445,50 @@ struct OrderCalculator {
         auto trainPtr = getTrainPtr(trainID);
         Train train = existTrains.getItem(trainPtr);
         if (!train.is_released) Error("TRAIN HAS NOT BEEN RELEASED YET");
-        if (train.endSaleDate < monthDate || monthDate < train.startSaleDate) Error("OUT OF SALEDATE");
+//        if (/*train.endSaleDate < monthDate ||*/ monthDate < train.startSaleDate) Error("OUT OF SALEDATE");
         const int fromint = train.findStation(fromStation), toint = train.findStation(toStation);
         const PassedMinutes leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];
         HourMinute startTime = train.startTime;
         int index = int(monthDate) - (startTime += leavingTime);
-        if (index < int(train.startSaleDate)) Error("OUT OF SALEDATE");
+        if (index < int(train.startSaleDate) || index > int(train.endSaleDate)) Error("OUT OF SALEDATE——INDEX ");
         const MonthDate trainStartDay(index);
         if (fromint == -1 || toint == -1)Error("CANNOT FIND STATION");
         TicketNum minTicket = 0x3f3f3f3f;
-        if(fromint > toint) Error("REVERSED PAIR");
+        if (fromint > toint) Error("REVERSED PAIR");
         for (int i = fromint; i < toint; ++i)
             minTicket = std::min(minTicket, train.ticketNums[index][i]);
-        if (functionName != "refund_ticket")order = Order("", "pending",
-                      trainID, fromStation, toStation,
-                      FullDate(trainStartDay, train.startTime) += leavingTime,
-                      FullDate(trainStartDay, train.startTime) += arrivingTime,
-                      train.prices[toint] - train.prices[fromint],
-                      minTicket
-        );
+        if (functionName != "refund_ticket" && functionName != "inform_queue")
+            order = Order(username, "pending",
+                          trainID, fromStation, toStation,
+                          FullDate(trainStartDay, train.startTime) += leavingTime,
+                          FullDate(trainStartDay, train.startTime) += arrivingTime,
+                          train.prices[toint] - train.prices[fromint],
+                          ticketNum
+            );
 
         //构造order，及共同模式
 
         if (functionName == "query_ticket" || functionName == "query_transfer_from") {
             timeret = train.arrivingTimes[toint] - train.leavingTimes[fromint];
+            order.num = minTicket;
             return;
         }
-        if (functionName == "query_transfer_to"){
+        if (functionName == "query_transfer_to") {
+            order.num = minTicket;
             return;
         }
         if (functionName == "buy_ticket") {
             AssureLogin(username);
-            if (order.num < ticketNum) {//no enough ticket
+            if (minTicket < ticketNum) {//no enough ticket
                 if (wannaWaitToBuyIfNoEnoughTicket == "false") Error("NO ENOUGH TICKET");
-                order.num = ticketNum;
-                waitQueue.push_front(order);//pending
+                //better Queue 可以不必是Queue的样子，而是trainID为key的一个map，这样在refund_ticket的时候可以大幅减少查队列所需的复杂度，尽管是内存行为。
+                waitQueue.push_back(order);//pending6
                 InTrace("queueLength");
                 userOrders.insert({username, order});
                 Return("queue");
                 return;
             }
-
             order.status = "success";//success
-            order.num = ticketNum;
-            order.username = username;
             userOrders.insert({username, order});
             for (int i = fromint; i < toint; ++i) {
                 train.ticketNums[index][i] -= ticketNum;
@@ -492,41 +499,51 @@ struct OrderCalculator {
         }
 
         if (functionName == "refund_ticket") {
-            Info(std::string("info: refund_ticket ")+ trainID + " " + std::string(monthDate) + " " + std::to_string(order.num));
+            Info(std::string("info: refund_ticket ") + trainID + " " + std::string(monthDate) + " " +
+                 std::to_string(order.num));
             for (int i = fromint; i < toint; ++i)//strange 为什么不能lambda化？
                 train.ticketNums[index][i] += order.num;
             existTrains.setItem(trainPtr, train);
-            for (auto it = waitQueue.begin(); it != waitQueue.end(); ++it) {
-                if (it->trainID != trainID || it->arrivingTime < order.leavingTime ||
-                    order.arrivingTime < it->leavingTime)
+            for (auto orderIter = waitQueue.begin(); orderIter != waitQueue.end(); ++orderIter) {
+                if (orderIter->trainID != trainID || orderIter->arrivingTime < order.leavingTime ||
+                    order.arrivingTime < orderIter->leavingTime)
                     continue;
-                ititer = &it;
-                run("informQueue", trainID, it->leavingTime, it->fromStation, it->toStation);
+                orderIterIter = &orderIter;
+                try {
+                    run("inform_queue", trainID, orderIter->leavingTime, orderIter->fromStation, orderIter->toStation);
+                }
+                catch (ErrorOccur) { continue; }
             }
             // queue 可以持有快速访问order的方法，反之亦然。但反之的重要性不那么重要，因为内存queue既短又快。
             Return(0);
             return;
         }
-        if (functionName == "informQueue") {//通知补票队列
-            //it 为队列中的某一个人，现在要审查那个人的order
+        if (functionName == "inform_queue") {//通知补票队列
+            //orderIter 为队列中的某一个人，现在要审查那个人的order
 //            Error("Debuginggggg!");
-            auto &it = *ititer;
-            if (order.num < it->num)return;
-            //todo check valid
-            Error("I DIDNT CHECK");
-            it->status = "success";//success
+            auto &orderIter = *orderIterIter;
+            if (minTicket < orderIter->num)return;
+            //todo check valid maybe checked? I don't know
+//            Error("I DIDNT CHECK");
+            orderIter->status = "success";//success
             for (int i = fromint; i < toint; ++i) {
-                train.ticketNums[index][i] -= it->num;
+                train.ticketNums[index][i] -= orderIter->num;
             }
             existTrains.setItem(trainPtr, train);
-            auto orderListPtr = userOrders.find(order.username);
+            auto orderListPtr = userOrders.find(orderIter->username);
             for (auto iter = orderListPtr->begin(); iter != orderListPtr->end(); ++iter) {
-                if(*iter == *it) {
+                if (*iter == *orderIter) {
                     iter->status = "success";
+                    waitQueue.erase(orderIter);
+                    Info(std::string("successed BuPiao   username:") + iter->username + "  trainID  " + iter->trainID
+                         + " fromStation  " + iter->fromStation + " toStation  " + iter->toStation +
+                         "   leavingTime  " + std::string(iter->leavingTime) + "   arrivingTime  " +
+                         std::string(iter->arrivingTime)
+                         + "   num  " + std::to_string(iter->num));
                     return;
                 }
             }
-            Error("CANNOT FIND THIS PENDING ORDER! PROGRAM WRONG!");
+            assert(false);
         }
     }
 } orderCalculator;
@@ -540,13 +557,15 @@ void train::query_ticket(StationName fromStation, StationName toStation, MonthDa
     if (sortFromLowerToHigherBy == "")sortFromLowerToHigherBy = "time";
     auto trains = findCommonTrain(fromStation, toStation);
     //stub in order to use sort in <algorithm>, I use std::vector instead of sjtu::vector
-    std::vector<std::pair<std::pair<int, TrainID> , std::string>> vans;
+    std::vector<std::pair<std::pair<int, TrainID>, std::string>> vans;
     for (TrainID trainID : trains) {
-        try{
+        try {
             orderCalculator.run("query_ticket", trainID, monthDate, fromStation, toStation);
-            vans.push_back({{(sortFromLowerToHigherBy == "time") ? orderCalculator.timeret : orderCalculator.order.price, trainID},
-                            std::string(orderCalculator.order)});
-        }catch(ErrorOccur){
+            vans.push_back(
+                    {{(sortFromLowerToHigherBy == "time") ? orderCalculator.timeret : orderCalculator.order.price,
+                      trainID},
+                     std::string(orderCalculator.order)});
+        } catch (ErrorOccur) {
         }
 
     }
@@ -567,36 +586,38 @@ void train::query_transfer(StationName fromStation, StationName toStation, Month
 
 //    auto midStations = findMidStation(fromStation, toStation);
 
-    std::pair<std::pair<int,TrainID>,std::pair<Order,Order>>bestAns;
+    std::pair<std::pair<int, TrainID>, std::pair<Order, Order>> bestAns;
     bestAns.first.first = 0;
-/*    for (auto midStation : midStations) {
-        std::vector<std::pair<int, Order>> sTomidPossibleOrders;
-        try{
-            for (auto startTrainID : midStation.start) {
-                orderCalculator.run("query_transfer_from", startTrainID, monthDate, fromStation, midStation.stationName);
-                sTomidPossibleOrders.push_back({(sortFromLowerToHigherBy == "time") ? int(orderCalculator.order.arrivingTime) : orderCalculator.order.price,
+    //caution 注意s与t的列车的双交点！！！找mid不要停，可能会有同样s与t列车的更优的mid！！！
+
+    /* for (auto midStation : midStations) {
+         std::vector<std::pair<int, Order>> s2midPossibleOrders;
+         std::vector<std::pair<int, Order>> mid2tPossibleOrders;
+         try{
+             for (auto startTrainID : midStation.start) {
+                 orderCalculator.run("query_transfer_from", startTrainID, monthDate, fromStation, midStation.stationName);
+                 s2midPossibleOrders.push_back({(sortFromLowerToHigherBy == "time") ? int(orderCalculator.order.arrivingTime) : orderCalculator.order.price,
                                                 orderCalculator.order});
-            }
-            for (auto endTrainID : midStation.end) {
-
-                orderCalculator.run("query_transfer_to", endTrainID, monthDate, midStation.stationName, toStation);
-                sTomidPossibleOrders.push_back({(sortFromLowerToHigherBy == "time") ? int(orderCalculator.order.arrivingTime) : orderCalculator.order.price,
+             }
+             for (auto endTrainID : midStation.end) {
+                 orderCalculator.run("query_transfer_to", endTrainID, monthDate, midStation.stationName, toStation);
+                 mid2tPossibleOrders.push_back({(sortFromLowerToHigherBy == "time") ? int(orderCalculator.order.arrivingTime) : orderCalculator.order.price,
                                                 orderCalculator.order});
-            }
-            for(auto possibleOrder : sTomidPossibleOrders){
+             }
+             for(auto possibleOrder : s2midPossibleOrders){
 
-            }
-        }catch(ErrorOccur){
-        }
+             }
+         }catch(ErrorOccur){
+         }
 
-    }*/
-    if(!bestAns.first.first) {
+     }*/
+    if (!bestAns.first.first) {
         Return(0);
         return;
     }
 
-        Return(std::string(bestAns.second.first));
-        Return(std::string(bestAns.second.second));
+    Return(std::string(bestAns.second.first));
+    Return(std::string(bestAns.second.second));
 }
 
 
@@ -637,9 +658,15 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     if (order.status == "refunded")Error("ALREADY REFUNDED");
     if (order.status == "pending") {
         for (auto it = waitQueue.begin(); it != waitQueue.end(); ++it) {
-            if(*it == order) {waitQueue.erase(it);                OutTrace("queueLength");
-                break;}
+            if (*it == order) {
+                waitQueue.erase(it);
+                order.status = "refunded";
+                Return(0);
+                OutTrace("queueLength");
+                return;
+            }
         }
+        assert(false);
     }
     order.status = "refunded";
     orderCalculator.order = order;
@@ -648,12 +675,28 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
 
 
 void sys::noReturnClean() {
-    cleanlog();
     existUsers.clear();
     existTrains.clear();
     loginUsers.clear();
     waitQueue.clear();
     userOrders.clear();
+    stmap.clear();
+}
+
+void fake_exit() {
+    existUsers.~OuterUniqueUnorderMap();
+    existTrains.~OuterUniqueUnorderMap();
+    loginUsers.~InnerUniqueUnorderMap();
+    waitQueue.~Queue();
+    userOrders.~InnerOuterMultiUnorderMap();
+    stmap.~InnerOuterMultiUnorderMap();
+    InnerOuterMultiUnorderMap<Username, Order, HashString> userOrders("user_orders.dat");
+    Queue<Order> waitQueue("wait_queue.dat");
+    InnerOuterMultiUnorderMap<StationName, TrainID, HashString> stmap("stationName_trainID.dat");//这是假的。
+    InnerUniqueUnorderMap<Username, Privilege, HashString> loginUsers;
+    OuterUniqueUnorderMap<Username, User, HashString> existUsers("existUsers.dat");
+    OuterUniqueUnorderMap<TrainID, Train, HashString> existTrains("existTrains.dat");
+
 }
 
 void sys::clean() {
@@ -667,9 +710,11 @@ void cache_putback() {
 
 void sys::exit() {
     Return("bye");
-    log();//FIXME to debug
+//    log();//FIXME to debug
 //    noReturnClean();
 //    cache_putback();
+//    fake_exit();//FIXME to debug
     std::exit(0);
 }
 
+//better 全内存读写，不用bpt！ stationnum由于很少，完全可以学习userorder，而不用bpt，只需要更改OuterUniqueMap为InnerOuterUniqueMap即可！

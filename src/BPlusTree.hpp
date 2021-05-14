@@ -12,7 +12,7 @@ class BPlusTree
     using ull = unsigned long long;
 
 private:
-    char file[30];
+    char file[50];
     std :: fstream fio;
     int prex = -1, prec, presize, prenxt, size = 0;
 
