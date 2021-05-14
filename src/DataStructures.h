@@ -187,12 +187,13 @@ struct InnerList {
     };
 
     Node *root = nullptr;
+    Node *rear = nullptr;
     int num = 0;
 
     int size() { return num; }
 
     InnerList() {
-        root = new Node();
+        rear = root = new Node();
     }
 
     InnerList(const InnerList &) = delete;
@@ -275,21 +276,20 @@ struct InnerList {
         root->n = new Node(t, root->n, root);
         if (root->n->n)root->n->n->p = root->n;
         ++num;
+        if(num==1) rear = root->n;
     }
     void push_back(T t) {//push to the place where begin() is pointing to.
-
-        Node* back = root;//better 写了个O（n)的pushback，权宜之计，维护正确性，明早改
-        while(back->n != nullptr) back = back->n;
-        back->n = new Node(t, back->n, back);
+        rear = rear->n = new Node(t, rear->n, rear);
         ++num;
     }
 
     void erase(Iterator &iter) {//return Iterator to next element, where ++Iterator go to the same element.
         Node *tmp = iter.ptr;
+        if(tmp==rear) rear = rear->p;
         tmp->p->n = tmp->n;
         if (tmp->n)
             tmp->n->p = tmp->p;
-        Node *ret = tmp->p;//bug
+        Node *ret = tmp->p;
         delete tmp;
         iter.ptr = ret;
         --num;
@@ -311,6 +311,7 @@ struct InnerList {
             tmp = nexttmp;
         }
         root->n = nullptr;
+        rear = root;
         num = 0;
     }
 
