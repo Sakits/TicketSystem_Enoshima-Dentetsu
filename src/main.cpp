@@ -684,7 +684,6 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ResetClock;
 //    Tracer;
     ck(username);
-    ckint(orderNumth);
     if (orderNumth == -1) orderNumth = 1;
     AssureLogin(username);
 
@@ -746,7 +745,7 @@ void cache_putback() {
 
 void sys::exit() {
     Return("bye");
-    log();//FIXME to debug
+//    log();//FIXME to debug
 //    noReturnClean();
 //    cache_putback();
 //    fake_exit();//FIXME to debug
