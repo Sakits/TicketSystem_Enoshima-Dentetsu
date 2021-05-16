@@ -14,6 +14,46 @@
 #include <functional>
 #include <ostream>
 
+template <class U, class V>
+struct mypair{
+    U first;
+    V second;
+    mypair(){}
+    mypair(const U& u, const V& v):first(u), second (v){}
+
+    bool operator==(const mypair &rhs) const {
+        return first == rhs.first &&
+               second == rhs.second;
+    }
+
+    bool operator!=(const mypair &rhs) const {
+        return !(rhs == *this);
+    }
+
+    bool operator<(const mypair &rhs) const {
+        if (first < rhs.first)
+            return true;
+        if (rhs.first < first)
+            return false;
+        return second < rhs.second;
+    }
+
+    bool operator>(const mypair &rhs) const {
+        return rhs < *this;
+    }
+
+    bool operator<=(const mypair &rhs) const {
+        return !(rhs < *this);
+    }
+
+    bool operator>=(const mypair &rhs) const {
+        return !(*this < rhs);
+    }
+};
+
+mypair<int,int> p = {1,2};
+
+
 // Hash 将 Key 映射为一个 unsigned long long
 template<class Key, class Value, class Hash>
 class OuterUniqueUnorderMap {
@@ -37,7 +77,7 @@ public:
 
     ~OuterUniqueUnorderMap() { fio.close(); }
 
-    bool insert(const std::pair<Key, Value> &pair) {
+    bool insert(const mypair<Key, Value> &pair) {
         fio.seekg(0, std::ios::end);
         int pos = fio.tellp();
 
@@ -52,9 +92,9 @@ public:
         return bpt.erase(Hash()(key));
     }
 
-    std::pair<int, bool> find(const Key &key) {
+    mypair<int, bool> find(const Key &key) {
         int f = bpt.query(Hash()(key));
-        return {f, ~f ? 1 : 0};
+        return {f, ~f ? true : false};
     }
 
     Value getItem(int pos) {
@@ -124,7 +164,7 @@ public:
         size++;
     }
 
-    bool insert(const std::pair<Key, Value> &pair) {
+    bool insert(const mypair<Key, Value> &pair) {
         ull hs = Hash()(pair.first);
         int hsmod = hs % MOD;
         for (int i = last[hsmod]; i; i = e[i].pre)
@@ -135,7 +175,7 @@ public:
         return 1;
     }
 
-    std::pair<Value, bool> erase(const Key &key) {
+    mypair<Value, bool> erase(const Key &key) {
         ull hs = Hash()(key);
         int hsmod = hs % MOD;
         for (int i = last[hsmod], *j = &last[hsmod]; i; j = &e[i].pre, i = e[i].pre)
@@ -190,7 +230,7 @@ struct InnerList {
     Node *rear = nullptr;
     int num = 0;
 
-    int size() { return num; }
+    int size() const{ return num; }
 
     InnerList() {
         rear = root = new Node();
@@ -327,7 +367,7 @@ class InnerOuterMultiUnorderMap {//复杂度分析：每次到threshold刷的时
 public:
     FileName fileName;
     std::fstream file;
-    static constexpr int THRESHOLD = 2;//memo 1 是debug用的数据，到时候再改回来
+    static constexpr int THRESHOLD = 100;//memo 1 是debug用的数据，到时候再改回来
 
     InnerOuterMultiUnorderMap(FileName fileName) : fileName(fileName),
                                                    outmapper((std::string("inout_") + fileName).c_str()) {
@@ -348,7 +388,7 @@ public:
     }
 
 
-    void insert(const std::pair<Key, Value> &pair) {
+    void insert(const mypair<Key, Value> &pair) {
         Data *dataptr = safeGetDataFromInnerMapper(pair.first);//还没有运用nownum的好处，也没有维护它。
         dataptr->listptr->push_front(pair.second);
         if (dataptr->listptr->size() > THRESHOLD)
@@ -411,6 +451,7 @@ public:
 
 
     InnerList<Value> *find(Key key) {//caution find 出来的链表会即使在内存中栈空间清除吗？ 不然写了这个也白白地没有用。
+        //better 可以取消门槛机制，每次find直接刷掉
         Data * dataptr = safeGetDataFromInnerMapper(key);
         InnerList<Value> *listptr = readListFromFile(file, dataptr->address, dataptr->nownum);
         mergeList(dataptr->listptr, listptr);

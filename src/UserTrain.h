@@ -131,7 +131,7 @@ struct HourMinute {
     }
 
     explicit operator int() const {
-        return hour*24+minute;
+        return hour * 60 + minute;
     }
 
     int operator+=(int x) {
@@ -152,8 +152,6 @@ struct HourMinute {
     }
 
 
-
-
     friend std::ostream &operator<<(std::ostream &os, const HourMinute &hourMinute) {
         os << ((hourMinute.hour < 10) ? "0" : "") << hourMinute.hour << ":" << ((hourMinute.minute < 10) ? "0" : "")
            << hourMinute.minute;
@@ -168,8 +166,9 @@ struct MonthDate {
     int date = 0;
 
     void testvaild() const {
-        if (month < 6 || month > 8 || date < 0 || date > 31) {
-            std::cout << std::string(*this) << std::endl;
+        if (month < 6 ||  date < 0 || date > 31) {
+            assert(false);
+//            throw ErrorOccur();
 //        log();
 //        exit(0);
 //        throw ("sss");
@@ -186,10 +185,10 @@ struct MonthDate {
 
     MonthDate(std::string str) : month(str[1] - '0'), date((str[3] - '0') * 10 + str[4] - '0') {}
 
-    explicit MonthDate(int x){
+    explicit MonthDate(int x) {
         month = 6;
         date = x;
-        while(date > calendar[month]){
+        while (date > calendar[month]) {
             date -= calendar[month];
             ++month;
         }
@@ -207,14 +206,14 @@ struct MonthDate {
 
     MonthDate &operator+=(int x) {
         date += x;
-        while(date > calendar[month]){
+        while (date > calendar[month]) {
             date -= calendar[month];
             ++month;
         }
         return *this;
     }
 
-    MonthDate operator+(int x)const{
+    MonthDate operator+(int x) const {
         MonthDate tmp(*this);
         tmp += x;
         return tmp;
@@ -282,7 +281,7 @@ struct FullDate {
     }
 
     explicit operator int() const {
-        return int(monthDate)*1440 + int(hourMinute);
+        return int(monthDate) * 1440 + int(hourMinute);
     }
 
     operator std::string() const {
@@ -318,6 +317,7 @@ struct User {
     Privilege privilege;
     int maxnumInUserOrder = -2;
     int curAddressInUserOrder = -2;
+
     User() = default;
 
     User(Privilege privilege, const Name &name, const MailAddr &mailAddr,
@@ -345,6 +345,7 @@ typedef std::string StationNames, Prices, TravelTimes, StopoverTimes, SaleDates;
 struct Train {
     static constexpr int STATIONMAX = 101;
     static constexpr int DAYMAX = 100;
+    TrainID trainID;
     StationNum stationNum;
     StationName stations[STATIONMAX];//这里可以用表示替代，注意！
     SeatNum seatNum;
@@ -358,15 +359,16 @@ struct Train {
     TicketNum ticketNums[DAYMAX][STATIONMAX] = {0};
     bool is_released = false;
 
-    Train(){}
+    Train() {}
 
     //caution 拷贝赋值都是浅拷贝！
 //    Train(const Train&) = delete;
 //    Train &operator=(const Train&) = delete;
-    Train(StationNum _stationNum, const sjtu::vector<StationName> &_stations, SeatNum _seatNum,
+    Train(TrainID _trainID, StationNum _stationNum, const sjtu::vector<StationName> &_stations, SeatNum _seatNum,
           const sjtu::vector<Price> &_prices, const StartTime &_startTime,
           const sjtu::vector<PassedMinutes> &_arrivingTimes, const sjtu::vector<PassedMinutes> &_leavingTimes,
-          const sjtu::vector<MonthDate> &_saleDate, const Type &_type) : stationNum(_stationNum), seatNum(_seatNum),
+          const sjtu::vector<MonthDate> &_saleDate, const Type &_type) : trainID(_trainID), stationNum(_stationNum),
+                                                                         seatNum(_seatNum),
                                                                          startTime(_startTime), type(_type) {
         for (int i = 0; i < stationNum; ++i) stations[i] = _stations[i];
         arrivingTimes[0] = leavingTimes[stationNum - 1] = 0;
@@ -397,7 +399,20 @@ struct Train {
 
 OuterUniqueUnorderMap<TrainID, Train, HashString> existTrains("existTrains.dat");
 
-typedef cStringType<10> Status;
+typedef int TrainPtr;
+
+//typedef cStringType<10> Status;
+
+enum Status {
+    SUCCESS, PENDING, REFUNDED
+};
+
+std::string stringlizeOrderStatus(Status Status) {
+    if (Status == SUCCESS) return "success";
+    if (Status == PENDING) return "pending";
+    if (Status == REFUNDED) return "refunded";
+    return "ERROR";
+}
 
 struct Order {
     Username username;//username其实并不需要，不过先留着吧。
@@ -455,26 +470,25 @@ int Order::timestamp = 0;
 //stub
 #include <set>
 
-InnerOuterMultiUnorderMap<StationName, TrainID, HashString> stmap("stationName_trainID.dat");//这是假的。
-//虽然估计能过BasicTest，以便检验正确性，但是因为内存太大不可能这么写，到时候改掉。先这么写了。
+InnerOuterMultiUnorderMap<StationName, TrainPtr, HashString> stmap("stationName_trainPtr.dat");
 
-void addPassedTrain(StationName stationName, TrainID trainID) {
+void addPassedTrainPtr(StationName stationName, TrainPtr trainPtr) {
     //stub
-    stmap.insert({stationName,trainID});
+    stmap.insert({stationName, trainPtr});
 }
 
-std::set<TrainID> findCommonTrain(StationName fromStation, StationName toStation) {
+std::set<TrainPtr> findCommonTrain(StationName fromStation, StationName toStation) {
     //stub
     auto iter_s = stmap.find(fromStation);
-    if (!iter_s) return std::set<TrainID>();
+    if (!iter_s) return std::set<TrainPtr>();
     auto iter_t = stmap.find(toStation);
-    if (!iter_t) return std::set<TrainID>();
-    std::set<TrainID> it_i;
-    std::set<TrainID> it_j;
+    if (!iter_t) return std::set<TrainPtr>();
+    std::set<TrainPtr> it_i;
+    std::set<TrainPtr> it_j;
     for (auto it = iter_s->begin(); it != iter_s->end(); ++it) it_i.insert(*it);
     for (auto it = iter_t->begin(); it != iter_t->end(); ++it) it_j.insert(*it);
     auto j = it_j.begin();
-    std::set<TrainID> ret;
+    std::set<TrainPtr> ret;
     for (auto i = it_i.begin(); i != it_i.end(); ++i) {
         for (; *j < *i; ++j)
             if (j == it_j.end()) goto BREAK_FCT;
@@ -482,16 +496,111 @@ std::set<TrainID> findCommonTrain(StationName fromStation, StationName toStation
     }
     BREAK_FCT:
     return ret;
+//better也可以用下面findMidStation的写法来找公共，还少些一个排序函数。
 }
 
-struct midStation{
+
+
+typedef std::map<StationName, mypair<std::vector<TrainPtr>, std::vector<TrainPtr>>> MidRetType;
+MidRetType findMidStation(StationName fromStation, StationName toStation) {
+    MidRetType midStations;
+    auto iter_s = stmap.find(fromStation);
+    if (!iter_s) return MidRetType();
+    auto iter_t = stmap.find(toStation);
+    if (!iter_t) return MidRetType();
+    for (auto it = iter_s->begin(); it != iter_s->end(); ++it) {
+        const Train &train = existTrains.getItem(*it);
+        int i = 0;
+        for (; i != train.stationNum && train.stations[i] != fromStation; ++i);
+        ++i;
+        for (; i != train.stationNum; ++i) {
+            midStations[train.stations[i]].first.push_back(*it);
+        }
+    }
+    for (auto it = iter_t->begin(); it != iter_t->end(); ++it) {
+        const Train &train = existTrains.getItem(*it);
+        int i = 0;
+        for(; i != train.stationNum && train.stations[i] != toStation; ++i){
+            midStations[train.stations[i]].second.push_back(*it);
+        }
+    }
+    MidRetType midRet;
+    for (auto it : midStations){
+        if(it.second.first.size() && it.second.second.size()){
+            midRet.insert(it);
+        }
+    }
+    //better outofsalesday-index 应该拿到这边来判——实际上什么都可以在这边做，因为写成暴力了嘛
+    return midRet;
+}
+
+//用list实现是可以O（1）的，但意外地麻烦
+/*
+struct MidStation{
     StationName stationName;
-    sjtu::vector<TrainID> start;
-    sjtu::vector<TrainID> end;
+    InnerList<TrainPtr>* start;
+    InnerList<TrainPtr>* end;
 };
-std::set<midStation> findMidStation(StationName fromStation, StationName toStation){
+
+InnerList<MidStation>* findMidStation(StationName fromStation, StationName toStation){
+    InnerUniqueUnorderMap<StationName, std::pair<InnerList<TrainPtr>*, InnerList<TrainPtr>*>, HashString> midStations;
+    InnerList<MidStation>* ret = new InnerList<MidStation>();
+    InnerList<StationName> stationNamesetter;
+    auto iter_s = stmap.find(fromStation);
+    if (!iter_s) return ret;
+    auto iter_t = stmap.find(toStation);
+    if (!iter_t) return ret;
+    for (auto it = iter_s->begin(); it != iter_s->end(); ++it) {
+        const Train &train = existTrains.getItem(*it);
+        int i = 0;
+        for (; i != train.stations[i] != fromStation; ++i);
+        ++i;
+        for(; i != train.stationNum; ++i){
+            auto* valptr = midStations.find(train.stations[i]);
+            if (!yvalptr) return *valptr;
+            insert({key,Value()});
+            return *find(key);
+            midStations[train.stations[i]].first.push_front(*it);
+            stationNamesetter.push_front(train.stations[i]);
+        }
+    }
+
+    Value& operator[](const Key& key){
+        Value* valptr = find(key);
+        if (valptr) return *valptr;
+        insert({key,Value()});
+        return *find(key);
+    }
+
+    for (auto it = iter_t->begin(); it != iter_t->end(); ++it) {
+        const Train &train = existTrains.getItem(*it);
+        int i = 0;
+        for(; i != train.stationNum && train.stations[i] != toStation; ++i){
+            midStations[train.stations[i]].second.push_front(*it);
+            stationNamesetter.push_front(train.stations[i]);
+        }
+    }
+    for (auto it = stationNamesetter.begin(); it != stationNamesetter.end(); ++it){
+        const auto& twolist = *(midStations.find(*it));
+        if(twolist.first.size() && twolist.second.size()){
+            ret->push_front(midStation);
+        }
+    }
+//车不一样的话
+   */
+/* for (auto it = iter_t->begin(); it != iter_t->end(); ++it) it_j.insert(*it);
+    auto j = it_j.begin();
+    std::set<TrainPtr> ret;
+    for (auto i = it_i.begin(); i != it_i.end(); ++i) {
+        for (; *j < *i; ++j)
+            if (j == it_j.end()) goto BREAK_FCT;
+        if (*j == *i) ret.insert(*j);
+    }
+    BREAK_FCT:
+    return ret;*//*
 
 }
+*/
 
 InnerOuterMultiUnorderMap<Username, Order, HashString> userOrders("user_orders.dat");
 //FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.

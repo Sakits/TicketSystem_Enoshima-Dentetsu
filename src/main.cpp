@@ -183,7 +183,7 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
         return -1;
     };
 
-    static std::pair<std::regex, std::function<void()>> arr[17] = {
+    static mypair<std::regex, std::function<void()>> arr[17] = {
             {rule_add_user,       []() { user::add_user(pm(_c), pm(_u), pm(_pu), pm(_nu), pm(_mu), pmint(_g)); }},
             {rule_login,          []() { user::login(pm(_u), pm(_pu)); }},
             {rule_logout,         []() { user::logout(pm(_u)); }},
@@ -221,7 +221,7 @@ void user::add_user(Username cur_username, Username username, Password password,
                     Privilege privilege) {
     ResetClock;
     cks(4, username, password, name, mailAddr);
-    if (!existUsers.empty()) {//这里把它的语义改了下，不过应该无伤大雅，本来要判的是isFirstUser()的
+    if (!existUsers.empty()) {//这里把它的语义改了下，不过并不影响，因为user是不会被删除的
         ck(cur_username);
         ckint(privilege);
         auto curPrivilegePtr = loginUsers.find(cur_username);
@@ -284,13 +284,17 @@ void user::modify_profile(Username cur_username, Username username, Password pas
     cks(2, cur_username, username);
     auto curUserPtr = loginUsers.find(cur_username);
     if (!curUserPtr) Error("CURRENT USER DOES NOT LOGIN");
-    Privilege curPrivilege = (cur_username == username) ? -2 : *curUserPtr;//-2表示解禁，小于任何权限
-
+    Privilege curPrivilege = *curUserPtr;
     auto ptr = existUsers.find(username);
-    if (!ptr.second) Error("FINDING USER DOES NOT EXIST");
+    if (!ptr.second)
+        Error("FINDING USER DOES NOT EXIST");
     User previous_user = existUsers.getItem(ptr.first);
-    if (previous_user.privilege >= curPrivilege) Error("NO PRIVILEGE");
-    const User &changedUser = User(privilege == -1 ? previous_user.privilege : privilege,
+    if (!(curPrivilege > previous_user.privilege || cur_username == username))
+        Error("NO PRIVILEGE");
+    if (!(privilege < curPrivilege))
+        Error("NO PRIVILEGE");
+    const User &changedUser = User(privilege == -1 ?
+                                   previous_user.privilege : privilege,
                                    name == "" ? previous_user.name : name,
                                    mailAddr == "" ? previous_user.mailAddr : mailAddr,
                                    password == "" ? previous_user.password : password);
@@ -346,7 +350,7 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
     }
 
     if (!existTrains.insert(
-            {trainID, Train(stationNum, station_s, seatNum, price_s, startTime, travelTime_s, stopoverTime_s,
+            {trainID, Train(trainID, stationNum, station_s, seatNum, price_s, startTime, travelTime_s, stopoverTime_s,
                             saleDate_s, type)}))
         Error("TRAIN ALREADY EXIST!");
     Return(0);
@@ -378,7 +382,7 @@ void train::release_train(TrainID trainID) {
 
 //stub
     for (int i = 0; i < train.stationNum; ++i)
-        addPassedTrain(train.stations[i], trainID);
+        addPassedTrainPtr(train.stations[i], trainPtr);
 
     Return(0);
 }
@@ -424,10 +428,13 @@ void train::query_order(Username username) {
     auto orderList = userOrders.find(username);
     Return(orderList->size());
     for (auto it = orderList->begin(); it != orderList->end(); ++it) {
-        Return(std::string("[") + it->status + "] " + std::string(*it));
+        Return(std::string("[") + stringlizeOrderStatus(it->status) + "] " + std::string(*it));
     }
 }
 
+enum FunctionName {
+    BUY_TICKET, QUERY_TICKET, QUERY_TRANSFER_FROM, QUERY_TRANSFER_TO, REFUND_TICKET, INFORM_QUEUE
+};
 
 struct OrderCalculator {
     Order order;
@@ -436,29 +443,41 @@ struct OrderCalculator {
     TicketNum ticketNum;
     TwoChoice wannaWaitToBuyIfNoEnoughTicket;
     decltype(waitQueue.begin()) *orderIterIter;
-//    midStation
+    TrainPtr trainPtr;
+    FullDate arriveTomid;
+//    MidStation
 
 
-    void run(std::string functionName, TrainID trainID, MonthDate monthDate, StationName fromStation,
+    void run(FunctionName functionName, TrainID trainID, const MonthDate& monthDate, StationName fromStation,
              StationName toStation) {
 //        Tracer;
-        auto trainPtr = getTrainPtr(trainID);
+        const bool giveTrainPtrInsteadOfTrainID = functionName == QUERY_TICKET || functionName == QUERY_TRANSFER_FROM ||
+                                                  functionName == QUERY_TRANSFER_TO;
+        if (!giveTrainPtrInsteadOfTrainID)trainPtr = getTrainPtr(trainID);
         Train train = existTrains.getItem(trainPtr);
+        if (giveTrainPtrInsteadOfTrainID) trainID = train.trainID;
         if (!train.is_released) Error("TRAIN HAS NOT BEEN RELEASED YET");
-//        if (/*train.endSaleDate < monthDate ||*/ monthDate < train.startSaleDate) Error("OUT OF SALEDATE");
         const int fromint = train.findStation(fromStation), toint = train.findStation(toStation);
         const PassedMinutes leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];
         HourMinute startTime = train.startTime;
-        int index = int(monthDate) - (startTime += leavingTime);
-        if (index < int(train.startSaleDate) || index > int(train.endSaleDate)) Error("OUT OF SALEDATE——INDEX ");
+        if (monthDate.month < 6 ||  monthDate.date < 0 || monthDate.date > 31) Error("INVALID MONTHDATE");
+        int index = int(monthDate) - ( startTime += leavingTime);
+        if (functionName == QUERY_TRANSFER_TO)
+            if (int(arriveTomid.hourMinute) > int(startTime)) ++index;
+        if (index > int(train.endSaleDate))
+            Error("OUT OF SALEDATE--INDEX ");
+        if (index < int(train.startSaleDate))
+            if(functionName != QUERY_TRANSFER_TO)
+                Error("OUT OF SALEDATE--INDEX ");
+            else index = int(train.startSaleDate);
         const MonthDate trainStartDay(index);
         if (fromint == -1 || toint == -1)Error("CANNOT FIND STATION");
         TicketNum minTicket = 0x3f3f3f3f;
-        if (fromint > toint) Error("REVERSED PAIR");
+        if (fromint >= toint) Error("REVERSED PAIR");//等号，禁止原地tp
         for (int i = fromint; i < toint; ++i)
             minTicket = std::min(minTicket, train.ticketNums[index][i]);
-        if (functionName != "refund_ticket" && functionName != "inform_queue")
-            order = Order(username, "pending",
+        if (functionName != REFUND_TICKET && functionName != INFORM_QUEUE)
+            order = Order(username, PENDING,
                           trainID, fromStation, toStation,
                           FullDate(trainStartDay, train.startTime) += leavingTime,
                           FullDate(trainStartDay, train.startTime) += arrivingTime,
@@ -468,16 +487,16 @@ struct OrderCalculator {
 
         //构造order，及共同模式
 
-        if (functionName == "query_ticket" || functionName == "query_transfer_from") {
+        if (functionName == QUERY_TICKET) {
             timeret = train.arrivingTimes[toint] - train.leavingTimes[fromint];
             order.num = minTicket;
             return;
         }
-        if (functionName == "query_transfer_to") {
+        if (functionName == QUERY_TRANSFER_FROM || functionName == QUERY_TRANSFER_TO) {
             order.num = minTicket;
             return;
         }
-        if (functionName == "buy_ticket") {
+        if (functionName == BUY_TICKET) {
             AssureLogin(username);
             if (minTicket < ticketNum) {//no enough ticket
                 if (wannaWaitToBuyIfNoEnoughTicket == "false") Error("NO ENOUGH TICKET");
@@ -488,7 +507,7 @@ struct OrderCalculator {
                 Return("queue");
                 return;
             }
-            order.status = "success";//success
+            order.status = SUCCESS;//success
             userOrders.insert({username, order});
             for (int i = fromint; i < toint; ++i) {
                 train.ticketNums[index][i] -= ticketNum;
@@ -498,7 +517,7 @@ struct OrderCalculator {
             return;
         }
 
-        if (functionName == "refund_ticket") {
+        if (functionName == REFUND_TICKET) {
             Info(std::string("info: refund_ticket ") + trainID + " " + std::string(monthDate) + " " +
                  std::to_string(order.num));
             for (int i = fromint; i < toint; ++i)//strange 为什么不能lambda化？
@@ -510,7 +529,7 @@ struct OrderCalculator {
                     continue;
                 orderIterIter = &orderIter;
                 try {
-                    run("inform_queue", trainID, orderIter->leavingTime, orderIter->fromStation, orderIter->toStation);
+                    run(INFORM_QUEUE, trainID, orderIter->leavingTime, orderIter->fromStation, orderIter->toStation);
                 }
                 catch (ErrorOccur) { continue; }
             }
@@ -518,14 +537,14 @@ struct OrderCalculator {
             Return(0);
             return;
         }
-        if (functionName == "inform_queue") {//通知补票队列
+        if (functionName == INFORM_QUEUE) {//通知补票队列
             //orderIter 为队列中的某一个人，现在要审查那个人的order
 //            Error("Debuginggggg!");
             auto &orderIter = *orderIterIter;
             if (minTicket < orderIter->num)return;
             //todo check valid maybe checked? I don't know
 //            Error("I DIDNT CHECK");
-            orderIter->status = "success";//success
+            orderIter->status = SUCCESS;//success
             for (int i = fromint; i < toint; ++i) {
                 train.ticketNums[index][i] -= orderIter->num;
             }
@@ -533,7 +552,7 @@ struct OrderCalculator {
             auto orderListPtr = userOrders.find(orderIter->username);
             for (auto iter = orderListPtr->begin(); iter != orderListPtr->end(); ++iter) {
                 if (*iter == *orderIter) {
-                    iter->status = "success";
+                    iter->status = SUCCESS;
                     waitQueue.erase(orderIter);
                     Info(std::string("successed BuPiao   username:") + iter->username + "  trainID  " + iter->trainID
                          + " fromStation  " + iter->fromStation + " toStation  " + iter->toStation +
@@ -555,19 +574,20 @@ void train::query_ticket(StationName fromStation, StationName toStation, MonthDa
     ResetClock;
     cks(3, fromStation, toStation, monthDate);
     if (sortFromLowerToHigherBy == "")sortFromLowerToHigherBy = "time";
-    auto trains = findCommonTrain(fromStation, toStation);
+    auto trainPtrs = findCommonTrain(fromStation, toStation);//better station 直接手持Outer的Iterator，即地址，
     //stub in order to use sort in <algorithm>, I use std::vector instead of sjtu::vector
-    std::vector<std::pair<std::pair<int, TrainID>, std::string>> vans;
-    for (TrainID trainID : trains) {
+    std::vector<mypair<mypair<int, TrainID>, std::string>> vans;
+    for (TrainPtr trainPtr : trainPtrs) {
         try {
-            orderCalculator.run("query_ticket", trainID, monthDate, fromStation, toStation);
+            orderCalculator.trainPtr = trainPtr;
+            orderCalculator.run(QUERY_TICKET, "", monthDate, fromStation, toStation);
             vans.push_back(
                     {{(sortFromLowerToHigherBy == "time") ? orderCalculator.timeret : orderCalculator.order.price,
-                      trainID},
+                      orderCalculator.order.trainID},
                      std::string(orderCalculator.order)});
         } catch (ErrorOccur) {
+            continue;
         }
-
     }
     //stub 对vector由低到高排序
 #include <algorithm>
@@ -584,34 +604,50 @@ void train::query_transfer(StationName fromStation, StationName toStation, Month
     cks(3, fromStation, toStation, monthDate);
     if (sortFromLowerToHigherBy == "")sortFromLowerToHigherBy = "time";
 
-//    auto midStations = findMidStation(fromStation, toStation);
+    auto midStations = findMidStation(fromStation, toStation);
 
-    std::pair<std::pair<int, TrainID>, std::pair<Order, Order>> bestAns;
-    bestAns.first.first = 0;
+    mypair<mypair<int, PassedMinutes>, mypair<Order, Order>> bestAns;
+    mypair<mypair<int, PassedMinutes>, mypair<Order, Order>> tmpAns;
+    bestAns.first.first = 0x3f3f3f3f;
     //caution 注意s与t的列车的双交点！！！找mid不要停，可能会有同样s与t列车的更优的mid！！！
-
-    /* for (auto midStation : midStations) {
-         std::vector<std::pair<int, Order>> s2midPossibleOrders;
-         std::vector<std::pair<int, Order>> mid2tPossibleOrders;
-         try{
-             for (auto startTrainID : midStation.start) {
-                 orderCalculator.run("query_transfer_from", startTrainID, monthDate, fromStation, midStation.stationName);
-                 s2midPossibleOrders.push_back({(sortFromLowerToHigherBy == "time") ? int(orderCalculator.order.arrivingTime) : orderCalculator.order.price,
-                                                orderCalculator.order});
-             }
-             for (auto endTrainID : midStation.end) {
-                 orderCalculator.run("query_transfer_to", endTrainID, monthDate, midStation.stationName, toStation);
-                 mid2tPossibleOrders.push_back({(sortFromLowerToHigherBy == "time") ? int(orderCalculator.order.arrivingTime) : orderCalculator.order.price,
-                                                orderCalculator.order});
-             }
-             for(auto possibleOrder : s2midPossibleOrders){
-
-             }
-         }catch(ErrorOccur){
-         }
-
-     }*/
-    if (!bestAns.first.first) {
+    for (auto midStation : midStations) {
+        for (auto startTrainPtr : midStation.second.first) {
+            std::cout << __FUNCTION__ << '\t' << __LINE__ << std::endl;
+            orderCalculator.trainPtr = startTrainPtr;
+            try {
+                std::cout << __FUNCTION__ << '\t' << __LINE__ << std::endl;
+                orderCalculator.run(QUERY_TRANSFER_FROM, "", monthDate, fromStation, midStation.first); } catch (
+                    ErrorOccur) { continue; }
+            std::cout << __FUNCTION__ << '\t' << __LINE__ << std::endl;
+            tmpAns.second.first = orderCalculator.order;
+            orderCalculator.arriveTomid = orderCalculator.order.arrivingTime;
+            for (auto endTrainPtr : midStation.second.second) {
+                std::cout << __FUNCTION__ << '\t' << __LINE__ << std::endl;
+                if (startTrainPtr == endTrainPtr) continue;
+                orderCalculator.trainPtr = endTrainPtr;
+                try {
+                    std::cout << __FUNCTION__ << '\t' << __LINE__ << std::endl;
+                    orderCalculator.run(QUERY_TRANSFER_TO, "", orderCalculator.arriveTomid.monthDate, midStation.first,
+                                        toStation);
+                } catch (ErrorOccur) { continue; }
+                std::cout << __FUNCTION__ << '\t' << __LINE__ << std::endl;
+                //                     (sortFromLowerToHigherBy == "time") ? int(orderCalculator.order.leavingTime) : orderCalculator.order.price
+                tmpAns.second.second = orderCalculator.order;
+                tmpAns.first.first = (sortFromLowerToHigherBy == "time") ? (int(tmpAns.second.second.arrivingTime) -
+                                                                            int(tmpAns.second.first.leavingTime)) : (
+                                             tmpAns.second.first.price + tmpAns.second.second.price);
+                tmpAns.first.second = int(tmpAns.second.first.arrivingTime) - int(tmpAns.second.first.leavingTime);
+                std::cout << "best" + std::string(bestAns.second.first) + "\nbest" + std::string(bestAns.second.second) + "\ntmp" + std::string(tmpAns.second.first) + "\ntmp" + std::string(tmpAns.second.second) + "\n" << std::endl;
+                if (tmpAns.first < bestAns.first)
+                {
+                    bestAns = tmpAns;
+                }
+            }
+            std::cout << __FUNCTION__ << '\t' << __LINE__ << std::endl;
+        }
+    }
+    std::cout << __FUNCTION__ << '\t' << __LINE__ << std::endl;
+    if (bestAns.first.first == 0x3f3f3f3f) {
         Return(0);
         return;
     }
@@ -633,7 +669,7 @@ void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, 
     orderCalculator.ticketNum = ticketNum;
     orderCalculator.username = username;
     orderCalculator.wannaWaitToBuyIfNoEnoughTicket = wannaWaitToBuyIfNoEnoughTicket;
-    orderCalculator.run("buy_ticket", trainID, monthDate, fromStation, toStation);
+    orderCalculator.run(BUY_TICKET, trainID, monthDate, fromStation, toStation);
 }
 
 
@@ -655,12 +691,12 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     const auto orderIter = userOrders.find(username, orderNumth);
     if (!orderIter)Error("WRONG ORDERNUMTH");
     Order &order = *orderIter;
-    if (order.status == "refunded")Error("ALREADY REFUNDED");
-    if (order.status == "pending") {
+    if (order.status == REFUNDED)Error("ALREADY REFUNDED");
+    if (order.status == PENDING) {
         for (auto it = waitQueue.begin(); it != waitQueue.end(); ++it) {
             if (*it == order) {
                 waitQueue.erase(it);
-                order.status = "refunded";
+                order.status = REFUNDED;
                 Return(0);
                 OutTrace("queueLength");
                 return;
@@ -668,9 +704,9 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
         }
         assert(false);
     }
-    order.status = "refunded";
+    order.status = REFUNDED;
     orderCalculator.order = order;
-    orderCalculator.run("refund_ticket", order.trainID, order.leavingTime, order.fromStation, order.toStation);
+    orderCalculator.run(REFUND_TICKET, order.trainID, order.leavingTime, order.fromStation, order.toStation);
 }
 
 
@@ -710,7 +746,7 @@ void cache_putback() {
 
 void sys::exit() {
     Return("bye");
-//    log();//FIXME to debug
+    log();//FIXME to debug
 //    noReturnClean();
 //    cache_putback();
 //    fake_exit();//FIXME to debug

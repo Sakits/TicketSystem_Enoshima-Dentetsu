@@ -8,14 +8,10 @@
 #include <iostream>
 #include "filemanip.h"
 #define AnsCheck
-static constexpr int litnum = 2;
-static constexpr int bignum = 5;
+static constexpr int litnum = 10;
+static constexpr int bignum = 6;
 //bug 注：3/5它测query_transfer了
-//wel 注：4过
-//wel 注：5过
-//bug 注：6/3buy ticket 我认为应该buy，答案为queue(可能是因为标答进行过成功的补票）
-//bug IOmap有bug，但是没de出来，也没做优化（多次进程会丢数据）， clear似乎也clear不干净。
-//把火车售票时间段改成绝对日期！
+//bug 注：6/10它测query_transfer了
 #define FileI { std::freopen((std::string("../data/basic_") + std::to_string(bignum) + '/' + std::to_string(litnum) + ".in").c_str(), "r", stdin);};
         std::fstream fans((std::string("../data/basic_") + std::to_string(bignum) + '/' + std::to_string(litnum) + ".out").c_str());
 #define TimeTracing
@@ -158,7 +154,7 @@ void Return(T thing){
     if(mystr!=ansstr){
         main_log << RED  << "IWRONG IS: " << mystr << END << std::endl;
         main_log << RED  << "ANSWER IS: " << ansstr << END << std::endl << CUT;
-        log();
+//        log();
         std::exit(0);
         freopen("../myin.txt", "r", stdin);
         writeByMyself = true;
