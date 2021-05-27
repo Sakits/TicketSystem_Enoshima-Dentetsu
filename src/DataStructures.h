@@ -323,7 +323,7 @@ class InnerOuterMultiUnorderMap {//复杂度分析：每次到threshold刷的时
 public:
     FileName fileName;
     std::fstream file;
-    static constexpr int THRESHOLD = 20;//memo 1 是debug用的数据，到时候再改回来
+    static constexpr int THRESHOLD = 10;//memo 1 是debug用的数据，到时候再改回来
 
     InnerOuterMultiUnorderMap(FileName fileName) : fileName(fileName),
                                                    outmapper((std::string("inout_") + fileName).c_str()) {
@@ -467,7 +467,7 @@ private:
         InnerList<Value> *&valueList = dataptr->listptr;
         mergeList(valueList, readListFromFile(file, dataptr->address, dataptr->nownum));
         dataptr->nownum = valueList->size();
-        if (dataptr->maxnum > valueList->size()) {//刷数据也在find里刷了。之后注意一下。
+        if (dataptr->maxnum >= valueList->size()) {//刷数据也在find里刷了。之后注意一下。
             valueList->writeToFile(file, dataptr->address);
         } else {
             file.seekg(0, std::ios::end);

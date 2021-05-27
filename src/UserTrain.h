@@ -395,6 +395,7 @@ std::string stringlizeOrderStatus(Status Status) {
 struct Order {
     StationName fromStation;
     StationName toStation;
+    Username username;//better username其实并不需要，可以把这个空间压掉。 但是要想压掉，得在队列里加入order对应的name。这样值得吗？
     TrainID trainID;
 
     FullDate arrivingTime;
@@ -409,9 +410,9 @@ struct Order {
     //或许需要ordernumth来做唯一认证，在refundticket的时候可以知道退了炸队列的到底是队列里的哪笔订单？
     Order() {}
 
-    Order(const Status &status, const TrainID &trainId,
+    Order(const Username &username, const Status &status, const TrainID &trainId,
           const StationName &fromStation, const StationName &toStation,
-          const FullDate &leavingTime, const FullDate &arrivingTime, Price price, int num) :
+          const FullDate &leavingTime, const FullDate &arrivingTime, Price price, int num) : username(username),
                                                                                              status(status),
                                                                                              trainID(trainId),
                                                                                              fromStation(fromStation),
@@ -431,6 +432,7 @@ struct Order {
     bool operator==(const Order &rhs) const {
         return
                 timestamplocal == rhs.timestamplocal &&//hack
+                username == rhs.username &&
                 trainID == rhs.trainID &&
                 fromStation == rhs.fromStation &&
                 toStation == rhs.toStation;

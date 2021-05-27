@@ -422,7 +422,7 @@ struct OrderCalculator {
         for (int i = fromint; i < toint; ++i)
             minTicket = std::min(minTicket, train.ticketNums[index][i]);
         if (functionName != REFUND_TICKET && functionName != INFORM_QUEUE)
-            order = Order(PENDING,
+            order = Order(username, PENDING,
                           trainID, fromStation, toStation,
                           FullDate(trainStartDay, train.startTime) += leavingTime,
                           FullDate(trainStartDay, train.startTime) += arrivingTime,
@@ -493,12 +493,12 @@ struct OrderCalculator {
                 train.ticketNums[index][i] -= orderIter->num;
             }
             existTrains.setItem(trainPtr, train);
-            auto orderListPtr = userOrders.find(username);
+            auto orderListPtr = userOrders.find(orderIter->username);
             for (auto iter = orderListPtr->begin(); iter != orderListPtr->end(); ++iter) {
                 if (*iter == *orderIter) {
                     iter->status = SUCCESS;
                     waitQueue.erase(orderIter);
-                    Info(std::string("successed BuPiao   username:") + username + "  trainID  " + iter->trainID
+                    Info(std::string("successed BuPiao   username:") + iter->username + "  trainID  " + iter->trainID
                          + " fromStation  " + iter->fromStation + " toStation  " + iter->toStation +
                          "   leavingTime  " + std::string(iter->leavingTime) + "   arrivingTime  " +
                          std::string(iter->arrivingTime)
@@ -628,7 +628,6 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     }
     order.status = REFUNDED;
     orderCalculator.order = order;
-    orderCalculator.username = username;
     orderCalculator.run(REFUND_TICKET, order.trainID, order.leavingTime, order.fromStation, order.toStation);
 }
 
