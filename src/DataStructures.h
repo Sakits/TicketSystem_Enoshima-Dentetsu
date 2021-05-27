@@ -88,7 +88,7 @@ public:
 };
 
 
-template<class Key, class Value, class Hash, int MAXN = 300000>
+template<class Key, class Value, class Hash, int MAXN = 100000>
 //Hash是一个模板类名，它实例化后的一个对象例为auto h = Hash<string>(), 这个对象重载了括号，比如可以h(1),然后返回一个size_t
 class InnerUniqueUnorderMap {
 private:
@@ -323,7 +323,7 @@ class InnerOuterMultiUnorderMap {//复杂度分析：每次到threshold刷的时
 public:
     FileName fileName;
     std::fstream file;
-    static constexpr int THRESHOLD = 40;//memo 1 是debug用的数据，到时候再改回来
+    static constexpr int THRESHOLD = 20;//memo 1 是debug用的数据，到时候再改回来
 
     InnerOuterMultiUnorderMap(FileName fileName) : fileName(fileName),
                                                    outmapper((std::string("inout_") + fileName).c_str()) {
