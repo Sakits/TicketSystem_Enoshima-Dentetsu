@@ -7,7 +7,7 @@
 
 #include <iostream>
 #include "filemanip.h"
-//#define OpenLog
+#define OpenLog
 
 #ifdef OpenLog
 

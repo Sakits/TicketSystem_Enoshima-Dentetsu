@@ -23,7 +23,7 @@ template<int N>
 class cStringType {
 private:
     char c[N] = {0};
-    size_t sz = 0;
+    short sz = 0;
 public:
     cStringType() {}
 
@@ -391,12 +391,11 @@ std::string stringlizeOrderStatus(Status Status) {
 }
 
 struct Order {
-    Username username;//username其实并不需要，不过先留着吧。
-    Status status;
-
-    TrainID trainID;
     StationName fromStation;
     StationName toStation;
+    Username username;//username其实并不需要，不过先留着吧。
+    TrainID trainID;
+
     FullDate arrivingTime;
     FullDate leavingTime;
     Price price;
@@ -404,6 +403,7 @@ struct Order {
     //hack 时间戳
     static int timestamp;
     int timestamplocal;
+    Status status;
 
     //或许需要ordernumth来做唯一认证，在refundticket的时候可以知道退了炸队列的到底是队列里的哪笔订单？
     Order() {}
