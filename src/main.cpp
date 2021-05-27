@@ -34,7 +34,7 @@ namespace user {
 namespace train {
 
     void
-    add_train(TrainID, StationNum, SeatNum, StationNames, Prices, StartTime, TravelTimes, StopoverTimes, SaleDates,
+    add_train(TrainID, StationNum, SeatNum, StationNames, Prices, HourMinute, TravelTimes, StopoverTimes, SaleDates,
               Type);
 
     void release_train(TrainID);
@@ -90,9 +90,7 @@ void initialize() {
 
 void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成static使她快20倍，而即使这样也特别的慢。
     ResetClock;
-
     std::string s[10];
-
     static const sjtu::pair<std::string, std::string> chooser[17] = {
             {"add_user", "upnm cg "},
             {"login", "up "},
@@ -123,7 +121,6 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
 
 //    Info(input);
     //memo 日志较为耗时，关掉即可
-
 
     std::string funcNameStr, paraStr;
     std::stringstream(input) >> funcNameStr;
@@ -289,13 +286,12 @@ sjtu::vector<int> ints_spliter(const std::string &_keyword) {
 }
 
 void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, StationNames stations, Prices prices,
-                      StartTime startTime, TravelTimes travelTimes, StopoverTimes stopoverTimes, SaleDates saleDates,
+                      HourMinute startTime, TravelTimes travelTimes, StopoverTimes stopoverTimes, SaleDates saleDates,
                       Type type) {
     ResetClock;
-//    Tracer;
     sjtu::vector<StationName> station_s = words_spliter<StationName>(stations);
-    sjtu::vector<PassedMinutes> travelTime_s = ints_spliter(travelTimes);
-    sjtu::vector<PassedMinutes> stopoverTime_s = ints_spliter(stopoverTimes);
+    sjtu::vector<int> travelTime_s = ints_spliter(travelTimes);
+    sjtu::vector<int> stopoverTime_s = ints_spliter(stopoverTimes);
     sjtu::vector<Price> price_s = ints_spliter(prices);
     sjtu::vector<MonthDate> saleDate_s = words_spliter<MonthDate>(saleDates);
     if (!(station_s.size() == stationNum && price_s.size() == stationNum - 1 && travelTime_s.size() == stationNum - 1
@@ -326,7 +322,7 @@ void AssureLogin(Username username) {
 
 void train::release_train(TrainID trainID) {
     ResetClock;
-    Tracer;
+    
     auto trainPtr = getTrainPtr(trainID);
     Train train = existTrains.getItem(trainPtr);
     if (train.is_released == 1)Error("TRAIN HAS ALREADY BE RELEASED");
@@ -341,7 +337,7 @@ void train::release_train(TrainID trainID) {
 
 void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     ResetClock;
-    Tracer;
+    
     Train train = getTrain(trainID);
     if (startingMonthDate < train.startSaleDate || train.endSaleDate < startingMonthDate)
         Error("QUERY DATE NOT IN SALE DATE");
@@ -361,7 +357,7 @@ void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
 
 void train::delete_train(TrainID trainID) {
     ResetClock;
-    Tracer;
+    
     //hack 因为是n操作，选择冗余操作
     //getTrain可能抛出异常，先验保证了。
     if (getTrain(trainID).is_released)Error("DELETE TRAIN IS RELEASED");
@@ -372,7 +368,7 @@ void train::delete_train(TrainID trainID) {
 
 void train::query_order(Username username) {
     ResetClock;
-    //    Tracer;
+    //    
     AssureLogin(username);
     auto orderList = userOrders.find(username);
     Return(orderList->size());
@@ -399,7 +395,7 @@ struct OrderCalculator {
 
     void run(FunctionName functionName, TrainID trainID, const MonthDate& monthDate, StationName fromStation,
              StationName toStation) {
-//        Tracer;
+//        
         const bool giveTrainPtrInsteadOfTrainID = functionName == QUERY_TICKET || functionName == QUERY_TRANSFER_FROM ||
                                                   functionName == QUERY_TRANSFER_TO;
         if (!giveTrainPtrInsteadOfTrainID)trainPtr = getTrainPtr(trainID);
@@ -407,7 +403,7 @@ struct OrderCalculator {
         if (giveTrainPtrInsteadOfTrainID) trainID = train.trainID;
         if (!train.is_released) Error("TRAIN HAS NOT BEEN RELEASED YET");
         const int fromint = train.findStation(fromStation), toint = train.findStation(toStation);
-        const PassedMinutes leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];
+        const int leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];
         HourMinute startTime = train.startTime;
         if (monthDate.month < 6 ||  monthDate.date < 0 || monthDate.date > 31) Error("INVALID MONTHDATE");
         int index = int(monthDate) - ( startTime += leavingTime);
@@ -489,11 +485,9 @@ struct OrderCalculator {
         }
         if (functionName == INFORM_QUEUE) {//通知补票队列
             //orderIter 为队列中的某一个人，现在要审查那个人的order
-//            Error("Debuginggggg!");
             auto &orderIter = *orderIterIter;
             if (minTicket < orderIter->num)return;
             //todo check valid maybe checked? I don't know
-//            Error("I DIDNT CHECK");
             orderIter->status = SUCCESS;//success
             for (int i = fromint; i < toint; ++i) {
                 train.ticketNums[index][i] -= orderIter->num;
@@ -551,8 +545,8 @@ void train::query_transfer(StationName fromStation, StationName toStation, Month
 
     auto midStations = findMidStation(fromStation, toStation);
 
-    sjtu::pair<sjtu::pair<int, PassedMinutes>, sjtu::pair<Order, Order>> bestAns;
-    sjtu::pair<sjtu::pair<int, PassedMinutes>, sjtu::pair<Order, Order>> tmpAns;
+    sjtu::pair<sjtu::pair<int, int>, sjtu::pair<Order, Order>> bestAns;
+    sjtu::pair<sjtu::pair<int, int>, sjtu::pair<Order, Order>> tmpAns;
     bestAns.first.first = 0x3f3f3f3f;
     for (auto midStation : midStations) {
         for (auto startTrainPtr : midStation.second.first) {
@@ -596,9 +590,7 @@ void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, 
                        StationName fromStation,
                        StationName toStation, TwoChoice wannaWaitToBuyIfNoEnoughTicket) {
     ResetClock;
-    Tracer;
     if (wannaWaitToBuyIfNoEnoughTicket == "") wannaWaitToBuyIfNoEnoughTicket = "false";
-
     orderCalculator.ticketNum = ticketNum;
     orderCalculator.username = username;
     orderCalculator.wannaWaitToBuyIfNoEnoughTicket = wannaWaitToBuyIfNoEnoughTicket;
@@ -615,7 +607,6 @@ void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, 
 
 void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ResetClock;
-//    Tracer;
     if (orderNumth == -1) orderNumth = 1;
     AssureLogin(username);
 

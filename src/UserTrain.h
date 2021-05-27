@@ -160,21 +160,11 @@ struct MonthDate {
     int month = 0;
     int date = 0;
 
-    void testvaild() const {
-        if (month < 6 ||  date < 0 || date > 31) {
-            assert(false);
-//            throw ErrorOccur();
-//        log();
-//        exit(0);
-//        throw ("sss");
-        }
-    }
-
     static constexpr int calendar[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
     MonthDate() {}
 
-    MonthDate(int month, int date) : month(month), date(date) { testvaild(); }
+    MonthDate(int month, int date) : month(month), date(date) { }
 
     MonthDate(FullDate);
 
@@ -190,7 +180,6 @@ struct MonthDate {
     }
 
     MonthDate &operator++() {
-        testvaild();
         if (date == calendar[month]) {
             month += 1, date = 1;
             return *this;
@@ -215,7 +204,6 @@ struct MonthDate {
     }
 
     explicit operator int() const {
-        testvaild();
         int ans = date;
         for (int i = month; i != 6; --i)
             ans += calendar[i - 1];
@@ -301,17 +289,15 @@ MonthDate::MonthDate(FullDate fullDate) {
 
 typedef cStringType<21> Username;
 typedef cStringType<31> Password;
-typedef cStringType<25> Name;
-typedef cStringType<33> MailAddr;
+typedef cStringType<16> Name;
+typedef cStringType<31> MailAddr;
 typedef int Privilege, OrderNumth;
 
 struct User {
-    Name name;
-    MailAddr mailAddr;
     Password password;
+    MailAddr mailAddr;
+    Name name;
     Privilege privilege;
-    int maxnumInUserOrder = -2;
-    int curAddressInUserOrder = -2;
 
     User() = default;
 
@@ -327,30 +313,28 @@ InnerUniqueUnorderMap<Username, Privilege, HashString> loginUsers;
 OuterUniqueUnorderMap<Username, User, HashString> existUsers("existUsers.dat");
 
 
-typedef cStringType<22> TrainID;
+typedef cStringType<21> TrainID;
 typedef int StationNum, SeatNum, TicketNum;
-typedef int PassedMinutes;
 typedef int Price;
-typedef cStringType<44> StationName;
-typedef HourMinute StartTime;
+typedef cStringType<31> StationName;
 typedef cStringType<2> Type;
-typedef cStringType<10> TwoChoice;
+typedef cStringType<6> TwoChoice;
 typedef std::string StationNames, Prices, TravelTimes, StopoverTimes, SaleDates;
 
 struct Train {
-    static constexpr int STATIONMAX = 101;
-    static constexpr int DAYMAX = 100;
-    TrainID trainID;
-    StationNum stationNum;
-    StationName stations[STATIONMAX];//这里可以用表示替代，注意！
-    SeatNum seatNum;
-    Price prices[STATIONMAX];
-    StartTime startTime;
-    PassedMinutes arrivingTimes[STATIONMAX] = {0};
-    PassedMinutes leavingTimes[STATIONMAX] = {0};//FIXME 应该是直接算出每站的绝对时间
-    MonthDate startSaleDate, endSaleDate;
-    Type type;
+    static constexpr int STATIONMAX = 100;
+    static constexpr int DAYMAX = 93;
     TicketNum ticketNums[DAYMAX][STATIONMAX] = {0};
+    StationName stations[STATIONMAX];//这里可以用表示替代，注意！
+    Price prices[STATIONMAX];
+    int arrivingTimes[STATIONMAX] = {0};
+    int leavingTimes[STATIONMAX] = {0};//FIXME 应该是直接算出每站的绝对时间
+    TrainID trainID;
+    HourMinute startTime;
+    MonthDate startSaleDate, endSaleDate;
+    StationNum stationNum;
+    SeatNum seatNum;
+    Type type;
     bool is_released = false;
 
     Train() {}
@@ -359,8 +343,8 @@ struct Train {
 //    Train(const Train&) = delete;
 //    Train &operator=(const Train&) = delete;
     Train(TrainID _trainID, StationNum _stationNum, const sjtu::vector<StationName> &_stations, SeatNum _seatNum,
-          const sjtu::vector<Price> &_prices, const StartTime &_startTime,
-          const sjtu::vector<PassedMinutes> &_arrivingTimes, const sjtu::vector<PassedMinutes> &_leavingTimes,
+          const sjtu::vector<Price> &_prices, const HourMinute &_startTime,
+          const sjtu::vector<int> &_arrivingTimes, const sjtu::vector<int> &_leavingTimes,
           const sjtu::vector<MonthDate> &_saleDate, const Type &_type) : trainID(_trainID), stationNum(_stationNum),
                                                                          seatNum(_seatNum),
                                                                          startTime(_startTime), type(_type) {
