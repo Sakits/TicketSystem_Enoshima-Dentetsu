@@ -395,7 +395,6 @@ std::string stringlizeOrderStatus(Status Status) {
 struct Order {
     StationName fromStation;
     StationName toStation;
-    Username username;//username其实并不需要，不过先留着吧。
     TrainID trainID;
 
     FullDate arrivingTime;
@@ -410,9 +409,9 @@ struct Order {
     //或许需要ordernumth来做唯一认证，在refundticket的时候可以知道退了炸队列的到底是队列里的哪笔订单？
     Order() {}
 
-    Order(const Username &username, const Status &status, const TrainID &trainId,
+    Order(const Status &status, const TrainID &trainId,
           const StationName &fromStation, const StationName &toStation,
-          const FullDate &leavingTime, const FullDate &arrivingTime, Price price, int num) : username(username),
+          const FullDate &leavingTime, const FullDate &arrivingTime, Price price, int num) :
                                                                                              status(status),
                                                                                              trainID(trainId),
                                                                                              fromStation(fromStation),
@@ -432,7 +431,6 @@ struct Order {
     bool operator==(const Order &rhs) const {
         return
                 timestamplocal == rhs.timestamplocal &&//hack
-                username == rhs.username &&
                 trainID == rhs.trainID &&
                 fromStation == rhs.fromStation &&
                 toStation == rhs.toStation;
