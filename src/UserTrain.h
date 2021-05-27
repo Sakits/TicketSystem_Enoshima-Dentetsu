@@ -23,7 +23,7 @@ template<int N>
 class cStringType {
 private:
     char c[N] = {0};
-    short sz = 0;
+    unsigned char sz = 0;
 public:
     cStringType() {}
 
@@ -106,8 +106,8 @@ public:
 };
 
 struct HourMinute {
-    int hour = -1;
-    int minute = -1;
+    char hour = -1;
+    char minute = -1;
 
     HourMinute() {}
 
@@ -130,11 +130,13 @@ struct HourMinute {
     }
 
     int operator+=(int x) {
-        minute += x;
-        hour += minute / 60;
-        minute %= 60;
-        int overflow = hour / 24;
-        hour %= 24;
+        int iminute = minute, ihour = hour;
+        iminute += x;
+        ihour += iminute / 60;
+        iminute %= 60;
+        int overflow = ihour / 24;
+        ihour %= 24;
+        minute = iminute, hour = ihour;
         return overflow;//better 取模是否可优化？
     }
 
@@ -157,8 +159,8 @@ struct HourMinute {
 struct FullDate;
 
 struct MonthDate {
-    int month = 0;
-    int date = 0;
+    char month = 0;
+    char date = 0;
 
     static constexpr int calendar[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
