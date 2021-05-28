@@ -575,6 +575,7 @@ MidRetType findMidStation(StationName fromStation, StationName toStation) {
 InnerOuterMultiUnorderMap<Username, Order> userOrders("user_orders.dat");
 //FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.
 
-InnerOuterMultiUnorderMap<TrainID, Order> waitQueue("wait_queue.dat");
+//InnerOuterMultiUnorderMap<TrainID, Order> waitQueue("wait_queue.dat");
+Queue<Order> waitQueue("wait_queue.dat");
 
 #endif //TRAINTICKET_BASICHEADER_H

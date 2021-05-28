@@ -496,7 +496,6 @@ private:
 //singleton pattern
 
 
-/*
 
 template<class T>
 struct Queue : InnerList<T> {
@@ -539,7 +538,6 @@ struct Queue : InnerList<T> {
         file.close();
     }
 };
-*/
 
 
 

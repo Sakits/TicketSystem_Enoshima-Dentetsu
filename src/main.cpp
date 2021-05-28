@@ -325,7 +325,7 @@ void AssureLogin(Username username) {
 
 void train::release_train(TrainID trainID) {
     ResetClock;
-    
+
     auto trainPtr = getTrainPtr(trainID);
     Train train = existTrains.getItem(trainPtr);
     if (train.is_released == 1)Error("TRAIN HAS ALREADY BE RELEASED");
@@ -340,7 +340,7 @@ void train::release_train(TrainID trainID) {
 
 void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     ResetClock;
-    
+
     Train train = getTrain(trainID);
     if (startingMonthDate < train.startSaleDate || train.endSaleDate < startingMonthDate)
         Error("QUERY DATE NOT IN SALE DATE");
@@ -360,7 +360,7 @@ void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
 
 void train::delete_train(TrainID trainID) {
     ResetClock;
-    
+
     //hack 因为是n操作，选择冗余操作
     //getTrain可能抛出异常，先验保证了。
     if (getTrain(trainID).is_released)Error("DELETE TRAIN IS RELEASED");
@@ -371,7 +371,7 @@ void train::delete_train(TrainID trainID) {
 
 void train::query_order(Username username) {
     ResetClock;
-    //    
+    //
     AssureLogin(username);
     auto orderList = userOrders.find(username);
     Return(orderList->size());
@@ -390,7 +390,7 @@ struct OrderCalculator {
     Username username;
     TicketNum ticketNum;
     TwoChoice wannaWaitToBuyIfNoEnoughTicket;
-    InnerList<Order>::Iterator *orderIterIter;
+    decltype(waitQueue.begin()) *orderIterIter;
     TrainPtr trainPtr;
     FullDate arriveTomid;
 //    MidStation
@@ -398,7 +398,7 @@ struct OrderCalculator {
 
     void run(FunctionName functionName, TrainID trainID, const MonthDate& monthDate, StationName fromStation,
              StationName toStation) {
-//        
+//
         const bool giveTrainPtrInsteadOfTrainID = functionName == QUERY_TICKET || functionName == QUERY_TRANSFER_FROM ||
                                                   functionName == QUERY_TRANSFER_TO;
         if (!giveTrainPtrInsteadOfTrainID)trainPtr = getTrainPtr(trainID);
@@ -451,7 +451,7 @@ struct OrderCalculator {
             if (minTicket < ticketNum) {//no enough ticket
                 if (wannaWaitToBuyIfNoEnoughTicket == "false") Error("NO ENOUGH TICKET");
                 //better Queue 可以不必是Queue的样子，而是trainID为key的一个map，这样在refund_ticket的时候可以大幅减少查队列所需的复杂度，尽管是内存行为。
-                waitQueue.find(trainID)->push_back(order);//pending6
+                waitQueue.push_back(order);//pending6
                 InTrace("queueLength");
                 userOrders.insert({username, order});
                 Return("queue");
@@ -473,8 +473,7 @@ struct OrderCalculator {
             for (int i = fromint; i < toint; ++i)//strange 为什么不能lambda化？
                 train.ticketNums[index][i] += order.num;
             existTrains.setItem(trainPtr, train);
-            auto queuePtr = waitQueue.find(trainID);
-            for (auto orderIter = queuePtr->begin(); orderIter != queuePtr->end(); ++orderIter) {
+            for (auto orderIter = waitQueue.begin(); orderIter != waitQueue.end(); ++orderIter) {
                 if (orderIter->trainID != trainID || orderIter->arrivingTime < order.leavingTime ||
                     order.arrivingTime < orderIter->leavingTime)
                     continue;
@@ -502,7 +501,7 @@ struct OrderCalculator {
             for (auto iter = orderListPtr->begin(); iter != orderListPtr->end(); ++iter) {
                 if (*iter == *orderIter) {
                     iter->status = SUCCESS;
-                    waitQueue.find(trainID)->erase(orderIter);
+                    waitQueue.erase(orderIter);
                     Info(std::string("successed BuPiao   username:") + iter->username + "  trainID  " + iter->trainID
                          + " fromStation  " + iter->fromStation + " toStation  " + iter->toStation +
                          "   leavingTime  " + std::string(iter->leavingTime) + "   arrivingTime  " +
@@ -620,10 +619,9 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     Order &order = *orderIter;
     if (order.status == REFUNDED)Error("ALREADY REFUNDED");
     if (order.status == PENDING) {
-        auto queuePtr = waitQueue.find(order.trainID);
-        for (auto it = queuePtr->begin(); it != queuePtr->end(); ++it) {
+        for (auto it = waitQueue.begin(); it != waitQueue.end(); ++it) {
             if (*it == order) {
-                queuePtr->erase(it);
+                waitQueue.erase(it);
                 order.status = REFUNDED;
                 Return(0);
                 OutTrace("queueLength");
