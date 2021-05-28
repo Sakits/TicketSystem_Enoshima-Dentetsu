@@ -390,7 +390,7 @@ struct OrderCalculator {
     Username username;
     TicketNum ticketNum;
     TwoChoice wannaWaitToBuyIfNoEnoughTicket;
-    decltype(waitQueue.begin()) *orderIterIter;
+    InnerList<Order>::Iterator *orderIterIter;
     TrainPtr trainPtr;
     FullDate arriveTomid;
 //    MidStation
@@ -451,7 +451,7 @@ struct OrderCalculator {
             if (minTicket < ticketNum) {//no enough ticket
                 if (wannaWaitToBuyIfNoEnoughTicket == "false") Error("NO ENOUGH TICKET");
                 //better Queue 可以不必是Queue的样子，而是trainID为key的一个map，这样在refund_ticket的时候可以大幅减少查队列所需的复杂度，尽管是内存行为。
-                waitQueue.push_back(order);//pending6
+                waitQueue.find(trainID)->push_back(order);//pending6
                 InTrace("queueLength");
                 userOrders.insert({username, order});
                 Return("queue");
@@ -473,7 +473,8 @@ struct OrderCalculator {
             for (int i = fromint; i < toint; ++i)//strange 为什么不能lambda化？
                 train.ticketNums[index][i] += order.num;
             existTrains.setItem(trainPtr, train);
-            for (auto orderIter = waitQueue.begin(); orderIter != waitQueue.end(); ++orderIter) {
+            auto queuePtr = waitQueue.find(trainID);
+            for (auto orderIter = queuePtr->begin(); orderIter != queuePtr->end(); ++orderIter) {
                 if (orderIter->trainID != trainID || orderIter->arrivingTime < order.leavingTime ||
                     order.arrivingTime < orderIter->leavingTime)
                     continue;
@@ -501,7 +502,7 @@ struct OrderCalculator {
             for (auto iter = orderListPtr->begin(); iter != orderListPtr->end(); ++iter) {
                 if (*iter == *orderIter) {
                     iter->status = SUCCESS;
-                    waitQueue.erase(orderIter);
+                    waitQueue.find(trainID)->erase(orderIter);
                     Info(std::string("successed BuPiao   username:") + iter->username + "  trainID  " + iter->trainID
                          + " fromStation  " + iter->fromStation + " toStation  " + iter->toStation +
                          "   leavingTime  " + std::string(iter->leavingTime) + "   arrivingTime  " +
@@ -619,9 +620,10 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
     Order &order = *orderIter;
     if (order.status == REFUNDED)Error("ALREADY REFUNDED");
     if (order.status == PENDING) {
-        for (auto it = waitQueue.begin(); it != waitQueue.end(); ++it) {
+        auto queuePtr = waitQueue.find(order.trainID);
+        for (auto it = queuePtr->begin(); it != queuePtr->end(); ++it) {
             if (*it == order) {
-                waitQueue.erase(it);
+                queuePtr->erase(it);
                 order.status = REFUNDED;
                 Return(0);
                 OutTrace("queueLength");

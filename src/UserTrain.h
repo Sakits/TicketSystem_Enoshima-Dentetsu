@@ -311,9 +311,9 @@ struct User {
 };//hack 坚持使用cStringType, rawuser 是否就不需要了？
 //better existUsers可以全部丢进内存吗？
 
-InnerUniqueUnorderMap<Username, Privilege, HashString> loginUsers;
+InnerUniqueUnorderMap<Username, Privilege> loginUsers;
 //better 订单可以放在内存里，等logout或者exit时写回去吗？那样就要有通知补票的机制，怎么补呢？对于有保证login的操作，都可以如此做吗？
-OuterUniqueUnorderMap<Username, User, HashString> existUsers("existUsers.dat");
+OuterUniqueUnorderMap<Username, User> existUsers("existUsers.dat");
 
 
 typedef cStringType<21> TrainID;
@@ -443,7 +443,7 @@ struct ZipedTrain {
 };
 
 
-OuterUniqueUnorderMap<TrainID, ZipedTrain, HashString> existTrains(
+OuterUniqueUnorderMap<TrainID, ZipedTrain> existTrains(
 
         "existTrains.dat");
 
@@ -516,7 +516,7 @@ struct Order {
 
 int Order::timestamp = 0;
 
-InnerOuterMultiUnorderMap<StationName, TrainPtr, HashString> stmap(
+InnerOuterMultiUnorderMap<StationName, TrainPtr> stmap(
 
         "stationName_trainPtr.dat");
 
@@ -572,17 +572,9 @@ MidRetType findMidStation(StationName fromStation, StationName toStation) {
 }
 
 
-InnerOuterMultiUnorderMap<Username, Order, HashString> userOrders(
-
-        "user_orders.dat");
+InnerOuterMultiUnorderMap<Username, Order> userOrders("user_orders.dat");
 //FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.
 
-//typedef OuterUniqueUnorderMap<TrainID, Train, HashString>::Iterator TrainPtr;
-
-
-Queue<Order> waitQueue(
-
-        "wait_queue.dat");
-
+InnerOuterMultiUnorderMap<TrainID, Order> waitQueue("wait_queue.dat");
 
 #endif //TRAINTICKET_BASICHEADER_H

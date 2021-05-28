@@ -12,8 +12,18 @@
 #include "map.hpp"
 
 
+
+struct HashString {
+    unsigned long long operator()(const std::string &str) {
+        int ans = 0;
+        for (int i = 0; str[i] != '\0'; ++i) ans = ans * 19260817 + str[i];
+        return ans;
+    }
+};
+
+
 // Hash 将 Key 映射为一个 unsigned long long
-template<class Key, class Value, class Hash>
+template<class Key, class Value, class Hash = HashString>
 class OuterUniqueUnorderMap {
 private:
     char file[50];
@@ -88,7 +98,7 @@ public:
 };
 
 //这个参数对内存有影响。
-template<class Key, class Value, class Hash, int MAXN = 50000>
+template<class Key, class Value, class Hash = HashString, int MAXN = 100000>
 //Hash是一个模板类名，它实例化后的一个对象例为auto h = Hash<string>(), 这个对象重载了括号，比如可以h(1),然后返回一个size_t
 class InnerUniqueUnorderMap {
 private:
@@ -318,12 +328,12 @@ struct InnerList {
     }
 };
 
-template<class Key, class Value, class Hash>
+template<class Key, class Value,class Hash = HashString>
 class InnerOuterMultiUnorderMap {//复杂度分析：每次到threshold刷的时候就要访问一次bpt
 public:
     FileName fileName;
     std::fstream file;
-    static constexpr int THRESHOLD = 5;//memo 1 是debug用的数据，到时候再改回来
+    static constexpr int THRESHOLD = 10;//memo 1 是debug用的数据，到时候再改回来
 
     InnerOuterMultiUnorderMap(FileName fileName) : fileName(fileName),
                                                    outmapper((std::string("inout_") + fileName).c_str()) {
@@ -486,6 +496,8 @@ private:
 //singleton pattern
 
 
+/*
+
 template<class T>
 struct Queue : InnerList<T> {
     FileName fileName;
@@ -527,15 +539,9 @@ struct Queue : InnerList<T> {
         file.close();
     }
 };
+*/
 
 
-struct HashString {
-    unsigned long long operator()(const std::string &str) {
-        int ans = 0;
-        for (int i = 0; str[i] != '\0'; ++i) ans = ans * 19260817 + str[i];
-        return ans;
-    }
-};
 
 //memo 关于写法：queue整万划分，queue基本在内存中进行，直到内存达万划入一个整万块。在refund时，一个个把整万块拿出来在栈空间检查，然后如果某个整万块退成了，把那个块在内存里改掉后在外存里全部覆写一遍。
 
