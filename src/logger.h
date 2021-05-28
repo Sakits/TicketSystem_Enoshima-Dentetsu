@@ -151,7 +151,11 @@ inline void log(){}
 inline void cleanlog(){}
 inline void Info(std::string x) {}
 inline void Error(const char *x) { throw ErrorOccur(); }
-template<class T> void Return(T thing){ std::cout << thing << "\n"; }
+template<class T> void Return(T thing){
+    std::stringstream ss;
+    ss << thing;
+    printf("%s\n", ss.str().c_str());
+}
 
 #define LocalClock
 #define ResetClock

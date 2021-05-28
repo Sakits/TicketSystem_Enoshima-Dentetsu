@@ -526,11 +526,9 @@ void addPassedTrainPtr(StationName stationName, TrainPtr trainPtr) {
 
 
 sjtu::map<TrainPtr, bool> findCommonTrain(StationName fromStation, StationName toStation) {
-    LocalClock("fct1");
     auto iter_s = stmap.find(fromStation);//很奇怪，find是主开销，明明应该是内存中办事的。
     if (!iter_s) return sjtu::map<TrainPtr, bool>();
     auto iter_t = stmap.find(toStation);
-    LocalClock("fct2");
     if (!iter_t) return sjtu::map<TrainPtr, bool>();
     sjtu::map<TrainPtr, bool> it_i, it_j, ret;
     for (auto it = iter_s->begin(); it != iter_s->end(); ++it) it_i.insert({*it, false});

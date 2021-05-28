@@ -112,6 +112,7 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
 
 //getline 是耗时的！
 //better 输入和输出都是耗时的，注意一下。
+
     getline(std::cin, input);
     input.erase(0, input.find_first_not_of(' '));
     input.erase(input.find_last_not_of(' ') + 1);
@@ -307,13 +308,15 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
 }
 
 auto getTrainPtr(TrainID trainID) {
+    LocalClock("biggettrain");
     auto curTrainPair = existTrains.find(trainID);
     if (!curTrainPair.second) Error("FINDING TRAIN DOES NOT EXIST");
+    ResetClock;
     return curTrainPair.first;
 }
 
 Train getTrain(TrainID trainID) {
-    return existTrains.getItem(getTrainPtr(trainID));
+    return existTrains.getItem(getTrainPtr(trainID));;
 }
 
 void AssureLogin(Username username) {
@@ -442,6 +445,7 @@ struct OrderCalculator {
             return;
         }
         if (functionName == BUY_TICKET) {
+            LocalClock("run buy ticket");
             AssureLogin(username);
             if(train.seatNum < ticketNum) Error("REALLY NO ENOUGH TICKET: MORE THAN SEATNUM");
             if (minTicket < ticketNum) {//no enough ticket

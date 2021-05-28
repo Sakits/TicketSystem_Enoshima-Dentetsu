@@ -323,7 +323,7 @@ class InnerOuterMultiUnorderMap {//复杂度分析：每次到threshold刷的时
 public:
     FileName fileName;
     std::fstream file;
-    static constexpr int THRESHOLD = 10;//memo 1 是debug用的数据，到时候再改回来
+    static constexpr int THRESHOLD = 20;//memo 1 是debug用的数据，到时候再改回来
 
     InnerOuterMultiUnorderMap(FileName fileName) : fileName(fileName),
                                                    outmapper((std::string("inout_") + fileName).c_str()) {
