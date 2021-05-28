@@ -389,7 +389,7 @@ struct ZipedTrain {
     static constexpr int STATIONMAX = 100;
     static constexpr int DAYMAX = 93;
     unsigned short ticketNums[DAYMAX][STATIONMAX] = {0};
-    unsigned int ismore[DAYMAX][STATIONMAX / 32] = {0};
+    unsigned char ismore[DAYMAX][STATIONMAX] = {0};
     StationName stations[STATIONMAX];//这里可以用表示替代，注意！
     Price prices[STATIONMAX];
     int arrivingTimes[STATIONMAX] = {0};
@@ -416,11 +416,8 @@ struct ZipedTrain {
         }
         for (int i = int(train.startSaleDate); i <= int(train.endSaleDate); ++i)
             for (int j = 0; j < train.stationNum - 1; ++j) {
-                if (train.ticketNums[i][j] >= 60000) {
-                    ismore[i][j / 32] = ismore[i][j / 32] | (1 << (j % 32));
-                    ticketNums[i][j] = train.ticketNums[i][j] - 60000;
-                } else
-                    ticketNums[i][j] = train.ticketNums[i][j];
+                ticketNums[i][j] = train.ticketNums[i][j] >> 8;
+                ismore[i][j] = train.ticketNums[i][j] & 255U;
             }
     }
 
@@ -439,8 +436,7 @@ struct ZipedTrain {
 
         for (int i = int(startSaleDate); i <= int(endSaleDate); ++i)
             for (int j = 0; j < stationNum - 1; ++j) {
-                train.ticketNums[i][j] = ticketNums[i][j] + ((((ismore[i][j / 32] >> (j % 32)) & 1)) != 0 ? 60000
-                                                                                                  : 0);
+                train.ticketNums[i][j] = int(ticketNums[i][j]) << 8 | ismore[i][j];
             }
         return train;
     }
