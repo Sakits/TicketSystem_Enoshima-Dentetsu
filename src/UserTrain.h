@@ -13,6 +13,7 @@
 #include <iostream>
 #include <cassert>
 #include <sstream>
+#include <limits>
 #include "vector.hpp"
 #include "DataStructures.h"
 //FIXME 这只是个stub，记得删了
@@ -166,7 +167,7 @@ struct MonthDate {
 
     MonthDate() {}
 
-    MonthDate(int month, int date) : month(month), date(date) { }
+    MonthDate(int month, int date) : month(month), date(date) {}
 
     MonthDate(FullDate);
 
@@ -323,6 +324,14 @@ typedef cStringType<2> Type;
 typedef cStringType<6> TwoChoice;
 typedef std::string StationNames, Prices, TravelTimes, StopoverTimes, SaleDates;
 
+//? zipArray{
+//
+//}
+//struct ZipedTrain{
+//
+//};
+
+
 struct Train {
     static constexpr int STATIONMAX = 100;
     static constexpr int DAYMAX = 93;
@@ -376,8 +385,71 @@ struct Train {
     }
 };
 
+struct ZipedTrain {
+    static constexpr int STATIONMAX = 100;
+    static constexpr int DAYMAX = 93;
+    unsigned short ticketNums[DAYMAX][STATIONMAX] = {0};
+    unsigned int ismore[DAYMAX][STATIONMAX / 32] = {0};
+    StationName stations[STATIONMAX];//这里可以用表示替代，注意！
+    Price prices[STATIONMAX];
+    int arrivingTimes[STATIONMAX] = {0};
+    int leavingTimes[STATIONMAX] = {0};//FIXME 应该是直接算出每站的绝对时间
+    TrainID trainID;
+    HourMinute startTime;
+    MonthDate startSaleDate, endSaleDate;
+    StationNum stationNum;
+    SeatNum seatNum;
+    Type type;
+    bool is_released = false;
 
-OuterUniqueUnorderMap<TrainID, Train, HashString> existTrains("existTrains.dat");
+    ZipedTrain() {}
+
+    ZipedTrain(const Train &train) : trainID(train.trainID), stationNum(train.stationNum),
+                                     seatNum(train.seatNum),
+                                     startTime(train.startTime), type(train.type), is_released(train.is_released),
+                                     startSaleDate(train.startSaleDate), endSaleDate(train.endSaleDate) {
+        for (int i = 0; i < stationNum; ++i) {
+            stations[i] = train.stations[i];
+            prices[i] = train.prices[i];
+            leavingTimes[i] = train.leavingTimes[i];
+            arrivingTimes[i] = train.arrivingTimes[i];
+        }
+        for (int i = int(train.startSaleDate); i <= int(train.endSaleDate); ++i)
+            for (int j = 0; j < train.stationNum - 1; ++j) {
+                if (train.ticketNums[i][j] >= 60000) {
+                    ismore[i][j / 32] = ismore[i][j / 32] | (1 << (j % 32));
+                    ticketNums[i][j] = train.ticketNums[i][j] - 60000;
+                } else
+                    ticketNums[i][j] = train.ticketNums[i][j];
+            }
+    }
+
+    operator Train() const {
+        Train train;
+        train.trainID = trainID, train.stationNum = stationNum,
+        train.seatNum = seatNum, train.startTime = startTime,
+        train.type = type, train.is_released = is_released;
+        for (int i = 0; i < stationNum; ++i) {
+            train.stations[i] = stations[i];
+            train.prices[i] = prices[i];
+            train.leavingTimes[i] = leavingTimes[i];
+            train.arrivingTimes[i] = arrivingTimes[i];
+        }
+        train.startSaleDate = startSaleDate, train.endSaleDate = endSaleDate;
+
+        for (int i = int(startSaleDate); i <= int(endSaleDate); ++i)
+            for (int j = 0; j < stationNum - 1; ++j) {
+                train.ticketNums[i][j] = ticketNums[i][j] + ((((ismore[i][j / 32] >> (j % 32)) & 1)) != 0 ? 60000
+                                                                                                  : 0);
+            }
+        return train;
+    }
+};
+
+
+OuterUniqueUnorderMap<TrainID, ZipedTrain, HashString> existTrains(
+
+        "existTrains.dat");
 
 typedef int TrainPtr;
 
@@ -415,10 +487,13 @@ struct Order {
           const FullDate &leavingTime, const FullDate &arrivingTime, Price price, int num) : username(username),
                                                                                              status(status),
                                                                                              trainID(trainId),
-                                                                                             fromStation(fromStation),
+                                                                                             fromStation(
+                                                                                                     fromStation),
                                                                                              toStation(toStation),
-                                                                                             leavingTime(leavingTime),
-                                                                                             arrivingTime(arrivingTime),
+                                                                                             leavingTime(
+                                                                                                     leavingTime),
+                                                                                             arrivingTime(
+                                                                                                     arrivingTime),
                                                                                              price(price),
                                                                                              num(num) { timestamplocal = ++timestamp; }
 
@@ -445,12 +520,13 @@ struct Order {
 
 int Order::timestamp = 0;
 
-InnerOuterMultiUnorderMap<StationName, TrainPtr, HashString> stmap("stationName_trainPtr.dat");
+InnerOuterMultiUnorderMap<StationName, TrainPtr, HashString> stmap(
+
+        "stationName_trainPtr.dat");
 
 void addPassedTrainPtr(StationName stationName, TrainPtr trainPtr) {
     stmap.insert({stationName, trainPtr});
 }
-
 
 
 sjtu::map<TrainPtr, bool> findCommonTrain(StationName fromStation, StationName toStation) {
@@ -460,16 +536,16 @@ sjtu::map<TrainPtr, bool> findCommonTrain(StationName fromStation, StationName t
     auto iter_t = stmap.find(toStation);
     LocalClock("fct2");
     if (!iter_t) return sjtu::map<TrainPtr, bool>();
-    sjtu::map<TrainPtr, bool> it_i,it_j,ret;
-    for (auto it = iter_s->begin(); it != iter_s->end(); ++it) it_i.insert({*it,false});
+    sjtu::map<TrainPtr, bool> it_i, it_j, ret;
+    for (auto it = iter_s->begin(); it != iter_s->end(); ++it) it_i.insert({*it, false});
     for (auto it = iter_t->begin(); it != iter_t->end(); ++it)
-        if(it_i.find(*it) != it_i.end()) ret.insert({*it, false});
+        if (it_i.find(*it) != it_i.end()) ret.insert({*it, false});
     return ret;
 }
 
 
-
 typedef sjtu::map<StationName, sjtu::pair<sjtu::vector<TrainPtr>, sjtu::vector<TrainPtr>>> MidRetType;
+
 MidRetType findMidStation(StationName fromStation, StationName toStation) {
     MidRetType midStations;
     auto iter_s = stmap.find(fromStation);
@@ -487,13 +563,13 @@ MidRetType findMidStation(StationName fromStation, StationName toStation) {
     for (auto it = iter_t->begin(); it != iter_t->end(); ++it) {
         const Train &train = existTrains.getItem(*it);
         int i = 0;
-        for(; i != train.stationNum && train.stations[i] != toStation; ++i){
+        for (; i != train.stationNum && train.stations[i] != toStation; ++i) {
             midStations[train.stations[i]].second.push_back(*it);
         }
     }
     MidRetType midRet;
-    for (auto it : midStations){
-        if(it.second.first.size() && it.second.second.size()){
+    for (auto it : midStations) {
+        if (it.second.first.size() && it.second.second.size()) {
             midRet.insert(it);
         }
     }
@@ -502,13 +578,17 @@ MidRetType findMidStation(StationName fromStation, StationName toStation) {
 }
 
 
-InnerOuterMultiUnorderMap<Username, Order, HashString> userOrders("user_orders.dat");
+InnerOuterMultiUnorderMap<Username, Order, HashString> userOrders(
+
+        "user_orders.dat");
 //FIXME 对这个类的使用是不正确的。。。。。。要求是，能快速访问userOrders.
 
 //typedef OuterUniqueUnorderMap<TrainID, Train, HashString>::Iterator TrainPtr;
 
 
-Queue<Order> waitQueue("wait_queue.dat");
+Queue<Order> waitQueue(
+
+        "wait_queue.dat");
 
 
 #endif //TRAINTICKET_BASICHEADER_H

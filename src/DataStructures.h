@@ -87,8 +87,8 @@ public:
     }
 };
 
-
-template<class Key, class Value, class Hash, int MAXN = 300000>
+//这个参数对内存有影响。
+template<class Key, class Value, class Hash, int MAXN = 100000>
 //Hash是一个模板类名，它实例化后的一个对象例为auto h = Hash<string>(), 这个对象重载了括号，比如可以h(1),然后返回一个size_t
 class InnerUniqueUnorderMap {
 private:
