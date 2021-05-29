@@ -10,7 +10,7 @@ template<typename T>
 class MemoryPool
 {
 private:
-    std :: FILE *fio;
+    std::FILE *fio;
     char file[50];
     int last, front, rear;
 
@@ -163,7 +163,7 @@ public:
 
         move_to_front(x);
 
-        std::fflush(fio);
+        
         std::fseek(fio, e[x].pos, SEEK_SET);
         std::fread(std::addressof(e[x].node), sizeof(e[x].node), 1, fio);
         return e[x].node;
@@ -176,7 +176,6 @@ public:
 
     void read(const int pos, int &p, int dep)
     {
-        std::fflush(fio);
         std::fseek(fio, pos, SEEK_SET);
         std::fread(std::addressof(p), sizeof(p), 1, fio);
     }
@@ -197,7 +196,6 @@ public:
     template<typename TT>
     void file_read(const int pos, TT &p)
     {
-        std::fflush(fio);
         std::fseek(fio, pos, SEEK_SET);
         std::fread(std::addressof(p), sizeof(p), 1, fio);
     }
@@ -214,7 +212,6 @@ public:
         if (~last)
         {
             cache_read(last, dep) = p;
-            std::fflush(fio);
             std::fseek(fio, last + sizeof(T), SEEK_SET);
             std::fread(std::addressof(last), sizeof(last), 1, fio);
         }
@@ -234,7 +231,6 @@ public:
         {
             std::fseek(fio, last, SEEK_SET);
             std::fwrite(std::addressof(p), sizeof(T), 1, fio);
-            std::fflush(fio);
             std::fread(std::addressof(last), sizeof(last), 1, fio);
         }
         else

@@ -21,57 +21,61 @@ struct HashString {
 };
 
 
-template<class Key, class Value, class Hash = HashString>
-class OuterUniqueUnorderMap {
+template<class Key, class Value, class Hash>
+class OuterUniqueUnorderMap 
+{
 private:
     char file[50];
     BPlusTree bpt;
-    std::fstream fio;
+    std::FILE *fio;
 
 public:
-    OuterUniqueUnorderMap(const char *_datafile) : bpt((std::string("bpt_") + _datafile).c_str()) {
+    OuterUniqueUnorderMap(const char *_datafile) : bpt((std::string("bpt_") + _datafile).c_str()) 
+    {
         strcpy(file, _datafile);
-        std::fstream fin(_datafile, std::ios::in | std::ios::binary);
-        if (!fin.is_open()) {
-            std::fstream fout(_datafile, std::ios::out | std::ios::binary);
-            fout.close();
-        }
-        fin.close();
-        fio.open(_datafile, std::ios::in | std::ios::out | std::ios::binary);
+
+        fio = std::fopen(file, "rb+");
+        if (fio == nullptr)
+            fio = std::fopen(file, "wb+");
     };
 
-    ~OuterUniqueUnorderMap() { fio.close(); }
+    ~OuterUniqueUnorderMap() { std::fclose(fio); }
 
-    bool insert(const sjtu::pair<Key, Value> &pair) {
-        fio.seekg(0, std::ios::end);
-        int pos = fio.tellp();
+    bool insert(const std::pair<Key, Value> &pair) 
+    {
+        std::fseek(fio, 0, SEEK_END);
+        int pos = std::ftell(fio);
 
         bool flag = bpt.insert(Hash()(pair.first), pos, 1);
         if (flag)
-            fio.write(reinterpret_cast<const char *>(&(pair.second)), sizeof(pair.second));
+            std::fwrite(std::addressof(pair.second), sizeof(pair.second), 1, fio);
 
         return flag;
     }
 
-    bool erase(const Key &key) {
+    bool erase(const Key &key) 
+    {
         return bpt.erase(Hash()(key));
     }
 
-    sjtu::pair<int, bool> find(const Key &key) {
+    std::pair<int, bool> find(const Key &key) 
+    {
         int f = bpt.query(Hash()(key));
         return {f, ~f ? true : false};
     }
 
-    Value getItem(int pos) {
+    Value getItem(int pos) 
+    {
         Value ans;
-        fio.seekg(pos, std::ios::beg);
-        fio.read(reinterpret_cast<char *>(&ans), sizeof(ans));
+        std::fseek(fio, pos, SEEK_SET);
+        std::fread(std::addressof(ans), sizeof(ans), 1, fio);
         return ans;
     }
 
-    void setItem(int pos, const Value &value) {
-        fio.seekg(pos, std::ios::beg);
-        fio.write(reinterpret_cast<const char *>(&value), sizeof(value));
+    void setItem(int pos, const Value &value) 
+    {
+        std::fseek(fio, pos, SEEK_SET);
+        std::fwrite(std::addressof(value), sizeof(value), 1, fio);
     }
 
     int get_size() const {
@@ -82,13 +86,10 @@ public:
         return bpt.get_size() == 0;
     }
 
-    void clear() {
-        fio.close();
-
-        std::fstream fout(file, std::ios::out | std::ios::binary);
-        fout.close();
-
-        fio.open(file, std::ios::in | std::ios::out | std::ios::binary);
+    void clear() 
+    {
+        std::fclose(fio);
+        fio = std::fopen(file, "wb+");
 
         bpt.clear();
     }
