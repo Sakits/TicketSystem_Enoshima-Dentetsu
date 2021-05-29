@@ -10,7 +10,7 @@ template<typename T>
 class MemoryPool
 {
 private:
-    std :: fstream fio;
+    std::FILE *fio;
     char file[50];
     int last, front, rear;
 
@@ -30,7 +30,6 @@ private:
         int hs = x % mod;
         for (int i = elast[hs]; i; i = e[i].pre)
         {
-            // printf("i:%d\n", i);
             if (x == e[i].pos)
                 return i;
         }
@@ -60,30 +59,21 @@ public:
         last = -1;
         front = rear = 0;
         strcpy(file, file_name);
-        
-        std :: fstream fin (file, std :: ios :: in | std :: ios :: binary);
 
-        if (!fin.is_open())
+        fio = std::fopen(file, "rb+");
+        if (fio == nullptr)
         {
-            std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
-            fout.write(reinterpret_cast<char *>(&last), sizeof(last));
-            fout.close();
+            fio = std::fopen(file, "wb+");
+            std::fwrite(std::addressof(last), sizeof(last), 1, fio);
         }
         else
-        {
-            fin.read(reinterpret_cast<char *>(&last), sizeof(last));
-            fin.close();
-        }
-        
-        fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
+            std::fread(std::addressof(last), sizeof(last), 1, fio);
     }
 
     void cut(int x)
     {
         if (rear == x)
             rear = e[x].epre;
-
-        // printf("cut: x:%d e[x].epre:%d\n", x, e[x].epre);
 
         if (e[x].epre)
             e[e[x].epre].enxt = e[x].enxt;
@@ -95,9 +85,8 @@ public:
 
     void release(int x)
     {
-        // printf("e[x].pos:%d\n", e[x].pos);
-        fio.seekg(e[x].pos, std :: ios :: beg);
-        fio.write(reinterpret_cast<char *>(&e[x].node), sizeof(e[x].node));
+        std::fseek(fio, e[x].pos, SEEK_SET);
+        std::fwrite(std::addressof(e[x].node), sizeof(e[x].node), 1, fio);
     }
 
     ~MemoryPool() 
@@ -107,16 +96,15 @@ public:
             release(front);
             front = e[front].enxt;
         }
-        fio.seekg(0, std :: ios :: beg);
-        fio.write(reinterpret_cast<char *>(&last), sizeof(last));
-        fio.close();
+        std::fseek(fio, 0, SEEK_SET);
+        std::fwrite(std::addressof(last), sizeof(last), 1, fio);
+        std::fclose(fio);
     }
 
     int get_file_end()
     {
-        fio.seekg(0, std :: ios :: end);
-        int pos = fio.tellp();
-        return pos;
+        std::fseek(fio, 0, SEEK_END);
+        return std::ftell(fio);
     }
 
     int get_nxt_pos()
@@ -134,17 +122,9 @@ public:
             e[front].epre = x;
         front = x;
     }
-    
-    // void check(const T &p)
-    // {
-    //     for (int i = 0; i < p.size; i++)
-    //         printf("%llu ", p.key[i]);
-    //     puts("");
-    // }
 
     T& cache_read(const int pos, int dep)
     {
-        if (pos == -1) exit(0);
         int x = find(pos);
         
         if (x)
@@ -154,8 +134,6 @@ public:
                 cut(x);
                 move_to_front(x);
             }
-            // printf("pos:%d\n", pos);
-            // check(e[x].node);
             return e[x].node;
         }
 
@@ -164,12 +142,10 @@ public:
             x = mpinsert(pos);
             if (tot == 1)
                 rear = x;
-            // printf("tot:%d x:%d rear:%d\n", tot, x, rear);
         }
         else
         {
             x = rear;
-            // printf("%d %d front:%drear:%d e[rear].epre:%d\n", tot, maxn, front, rear, e[rear].epre);
             int tmp = rear;
 
             cut(x);
@@ -187,10 +163,9 @@ public:
 
         move_to_front(x);
 
-        fio.seekg(e[x].pos, std :: ios :: beg);
-        fio.read(reinterpret_cast<char *>(&e[x].node), sizeof(e[x].node));
-        // printf("pos:%d\n", pos);
-        // check(e[x].node);
+        
+        std::fseek(fio, e[x].pos, SEEK_SET);
+        std::fread(std::addressof(e[x].node), sizeof(e[x].node), 1, fio);
         return e[x].node;
     }
 
@@ -201,8 +176,8 @@ public:
 
     void read(const int pos, int &p, int dep)
     {
-        fio.seekg(pos, std :: ios :: beg);
-        fio.read(reinterpret_cast<char *>(&p), sizeof(p));
+        std::fseek(fio, pos, SEEK_SET);
+        std::fread(std::addressof(p), sizeof(p), 1, fio);
     }
 
     void write(const int pos, T &p, int dep)
@@ -221,15 +196,15 @@ public:
     template<typename TT>
     void file_read(const int pos, TT &p)
     {
-        fio.seekg(pos, std :: ios :: beg);
-        fio.read(reinterpret_cast<char *>(&p), sizeof(p));
+        std::fseek(fio, pos, SEEK_SET);
+        std::fread(std::addressof(p), sizeof(p), 1, fio);
     }
 
     template<typename TT>
     void file_write(const int pos, TT &p)
     {
-        fio.seekg(pos, std :: ios :: beg);
-        fio.write(reinterpret_cast<char *>(&p), sizeof(p));
+        std::fseek(fio, pos, SEEK_SET);
+        std::fwrite(std::addressof(p), sizeof(p), 1, fio);
     }
 
     void insert(T &p, int dep)
@@ -237,15 +212,15 @@ public:
         if (~last)
         {
             cache_read(last, dep) = p;
-            fio.seekg(last + sizeof(T), std :: ios :: beg);
-            fio.read(reinterpret_cast<char *>(&last), sizeof(last));
+            std::fseek(fio, last + sizeof(T), SEEK_SET);
+            std::fread(std::addressof(last), sizeof(last), 1, fio);
         }
         else
         {
-            fio.seekg(0, std :: ios :: end);
-            fio.write(reinterpret_cast<char *>(&p), sizeof(p));
+            std::fseek(fio, 0, SEEK_END);
+            std::fwrite(std::addressof(p), sizeof(p), 1, fio);
             int tmp = -1;
-            fio.write(reinterpret_cast<char *>(&tmp), sizeof(tmp));
+            std::fwrite(std::addressof(tmp), sizeof(tmp), 1, fio);
         }
     }
 
@@ -254,33 +229,34 @@ public:
     {
         if (~last)
         {
-            fio.seekg(last, std :: ios :: beg);
-            fio.write(reinterpret_cast<char *>(&p), sizeof(T));
-            fio.tellg();
-            fio.read(reinterpret_cast<char *>(&last), sizeof(last));
+            std::fseek(fio, last, SEEK_SET);
+            std::fwrite(std::addressof(p), sizeof(T), 1, fio);
+            std::fread(std::addressof(last), sizeof(last), 1, fio);
         }
         else
         {
-            fio.seekg(0, std :: ios :: end);
-            fio.write(reinterpret_cast<char *>(&p), sizeof(T));
+            std::fseek(fio, 0, SEEK_END);
+            std::fwrite(std::addressof(p), sizeof(T), 1, fio);
             int tmp = -1;
-            fio.write(reinterpret_cast<char *>(&tmp), sizeof(tmp));
+            std::fwrite(std::addressof(tmp), sizeof(tmp), 1, fio);
         }
     }
 
     void erase(int pos)
     {
-        fio.seekg(pos + sizeof(T), std :: ios :: beg);
-        fio.write(reinterpret_cast<char *>(&last), sizeof(last));
+        std::fseek(fio, pos + sizeof(T), SEEK_SET);
+        std::fwrite(std::addressof(last), sizeof(last), 1, fio);
         last = pos;
     }
 
     void clear()
     {
-        tot = 0;
+        tot = 0; last = -1;
         memset(elast, 0, sizeof(elast));
-        fio.close();
-        fio.open(file, std :: ios :: trunc | std :: ios :: in | std :: ios :: out | std :: ios :: binary);
+
+        std::fclose(fio);
+        fio = std::fopen(file, "wb+");
+        std::fwrite(std::addressof(last), sizeof(last), 1, fio);
     }
 };
 
