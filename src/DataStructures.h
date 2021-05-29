@@ -21,7 +21,7 @@ struct HashString {
 };
 
 
-template<class Key, class Value, class Hash>
+template<class Key, class Value, class Hash = HashString>
 class OuterUniqueUnorderMap 
 {
 private:

@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-//#define OpenLog
+#define OpenLog
 
 #ifdef OpenLog
 
