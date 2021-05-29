@@ -4,12 +4,11 @@
 #include <cstring>
 #include <cmath>
 #include <cstdio>
-#include <regex>
 #include <fstream>
 #include <sstream>
 #include "logger.h"
 #include "vector.hpp"
-#include "UserTrain.h"
+#include "UserTrainOrder.h"
 #include <functional>
 
 void initialize();
@@ -33,9 +32,7 @@ namespace user {
 
 namespace train {
 
-    void
-    add_train(TrainID, StationNum, SeatNum, StationNames, Prices, HourMinute, TravelTimes, StopoverTimes, SaleDates,
-              Type);
+    void add_train(TrainID, StationNum, SeatNum, StationNames, Prices, HourMinute, TravelTimes, StopoverTimes, SaleDates, Type);
 
     void release_train(TrainID);
 
@@ -110,18 +107,12 @@ void function_chooser() {//FIXME 时间性能异常，首先要把所有regex东西都提出来改成
             {"clean", " "},
             {"exit", " "}};
 
-//getline 是耗时的！
-//better 输入和输出都是耗时的，注意一下。
-
     getline(std::cin, input);
     input.erase(0, input.find_first_not_of(' '));
     input.erase(input.find_last_not_of(' ') + 1);
-//    if (cin.eof()) exit(0);
-    //maybe 不知道有没有eof自动关闭的机制，先认为没有，因为可能没有buy返回值，但又要动态放回。
     if (input.empty()) return;
 
-//    Info(input);
-    //memo 日志较为耗时，关掉即可
+    Info(input);
 
     std::string funcNameStr, paraStr;
     std::stringstream(input) >> funcNameStr;
@@ -201,7 +192,6 @@ void user::add_user(Username cur_username, Username username, Password password,
 
 void user::login(Username username, Password password) {
     ResetClock;
-    InTrace("loginUser");
     auto CurUserPair = existUsers.find(username);
     if (!CurUserPair.second) Error("USER DOES NOT EXIST");
     const User &foundUser = existUsers.getItem(CurUserPair.first);
@@ -213,7 +203,6 @@ void user::login(Username username, Password password) {
 
 void user::logout(Username username) {
     ResetClock;
-    OutTrace("loginUser");
     auto erasePair = loginUsers.erase(username);
     if (!erasePair.second)Error("CURRENT USER DOES NOT LOGIN");//erase in loginUsers
     Return(0);
@@ -308,10 +297,8 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
 }
 
 auto getTrainPtr(TrainID trainID) {
-    LocalClock("biggettrain");
     auto curTrainPair = existTrains.find(trainID);
     if (!curTrainPair.second) Error("FINDING TRAIN DOES NOT EXIST");
-    ResetClock;
     return curTrainPair.first;
 }
 
@@ -320,7 +307,7 @@ Train getTrain(TrainID trainID) {
 }
 
 void AssureLogin(Username username) {
-    if (!loginUsers.find(username))Error("USER DOES NOT LOGIN");//fixme 注意，存在它的地方都可以被另一个map优化掉，之后来做这个替换。
+    if (!loginUsers.find(username))Error("USER DOES NOT LOGIN");
 }
 
 void train::release_train(TrainID trainID) {
@@ -344,11 +331,8 @@ void train::query_train(TrainID trainID, MonthDate startingMonthDate) {
     Train train = getTrain(trainID);
     if (startingMonthDate < train.startSaleDate || train.endSaleDate < startingMonthDate)
         Error("QUERY DATE NOT IN SALE DATE");
-//既然周聪说了，按他说的改 maybe
     std::string ans;
     Return(trainID + " " + train.type);
-    //TODO 检验日期是否在内
-    int test = int(startingMonthDate);
     for (int i = 0; i < train.stationNum; ++i) {
         Return(train.stations[i] + " " + ((i != 0) ? std::string(FullDate(startingMonthDate, train.startTime) += train
                 .arrivingTimes[i]) : "xx-xx xx:xx") + " -> " +
@@ -452,7 +436,6 @@ struct OrderCalculator {
                 if (wannaWaitToBuyIfNoEnoughTicket == "false") Error("NO ENOUGH TICKET");
                 //better Queue 可以不必是Queue的样子，而是trainID为key的一个map，这样在refund_ticket的时候可以大幅减少查队列所需的复杂度，尽管是内存行为。
                 waitQueue.push_back(order);//pending6
-                InTrace("queueLength");
                 userOrders.insert({username, order});
                 Return("queue");
                 return;
@@ -491,7 +474,6 @@ struct OrderCalculator {
             //orderIter 为队列中的某一个人，现在要审查那个人的order
             auto &orderIter = *orderIterIter;
             if (minTicket < orderIter->num)return;
-            //todo check valid maybe checked? I don't know
             orderIter->status = SUCCESS;//success
             for (int i = fromint; i < toint; ++i) {
                 train.ticketNums[index][i] -= orderIter->num;
@@ -515,13 +497,12 @@ struct OrderCalculator {
     }
 } orderCalculator;
 
-//better 用order_calculator 都存在微小冗余，不用判错误等等
 
 void train::query_ticket(StationName fromStation, StationName toStation, MonthDate monthDate,
                          TwoChoice sortFromLowerToHigherBy) {
     ResetClock;
     if (sortFromLowerToHigherBy == "")sortFromLowerToHigherBy = "time";
-    auto trainPtrs = findCommonTrain(fromStation, toStation);//better station 直接手持Outer的Iterator，即地址
+    auto trainPtrs = findCommonTrain(fromStation, toStation);
     sjtu::vector<sjtu::pair<sjtu::pair<int, TrainID>, std::string>> vans;
     for (auto &sth : trainPtrs) {
         TrainPtr trainPtr = sth.first;
@@ -605,9 +586,6 @@ void train::buy_ticket(Username username, TrainID trainID, MonthDate monthDate, 
 //queue开局加载，关闭放回
 //existUsers开局加载，关闭放回
 
-//todo User 的 orderTotalNum 放在exist和login里面好了
-
-
 
 void train::refund_ticket(Username username, OrderNumth orderNumth) {
     ResetClock;
@@ -624,7 +602,6 @@ void train::refund_ticket(Username username, OrderNumth orderNumth) {
                 waitQueue.erase(it);
                 order.status = REFUNDED;
                 Return(0);
-                OutTrace("queueLength");
                 return;
             }
         }
@@ -646,11 +623,13 @@ void sys::noReturnClean() {
 }
 
 void sys::clean() {
+    ResetClock;
     sys::noReturnClean();
     Return(0);
 }
 
 void sys::exit() {
+    ResetClock;
     Return("bye");
     log();
     std::exit(0);

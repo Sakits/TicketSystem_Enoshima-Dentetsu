@@ -5,14 +5,17 @@
 #include <cstring>
 #include <cstdio>
 #include <fstream>
-#include "MemoryPool.hpp"
 
 class BPlusTree
 {
-    static const int max_size = 40, block_size = max_size / 2;
+    static const int max_size = 60, block_size = max_size / 2;
     using ull = unsigned long long;
 
 private:
+    char file[50];
+    std :: fstream fio;
+    int prex = -1, prec, presize, prenxt, size = 0;
+
     class Node
     {
     public:
@@ -45,9 +48,26 @@ private:
         }
     };
 
-    static const int root_file_pos = 8 + sizeof(Node);
-    int prex = -1, prec, presize, prenxt, size = 0;
-    MemoryPool<Node> node_pool;
+    template<typename T>
+    void file_read(const int pos, T &p)
+    {
+        fio.seekg(pos, std :: ios :: beg);
+        fio.read(reinterpret_cast<char *>(&p), sizeof(p));
+    }
+
+    template<typename T>
+    void file_write(const int pos, T &p)
+    {
+        fio.seekg(pos, std :: ios :: beg);
+        fio.write(reinterpret_cast<char *>(&p), sizeof(p));
+    }
+
+    int get_file_end()
+    {
+        fio.seekg(0, std :: ios :: end);
+        int pos = fio.tellp();
+        return pos;
+    }
 
     int get_pos(const Node &now, const ull _key, int pos, bool unique = 0)
     {
@@ -75,47 +95,55 @@ private:
     }
 
 public:
-    BPlusTree (const char* file_name, int cache_size = 0) : node_pool(file_name)
+    BPlusTree (const char* file_name, int cache_size = 0)
     {
-        if (node_pool.get_file_end() == sizeof(int))
+        strcpy(file, file_name);
+
+        std :: fstream fin (file, std :: ios :: in | std :: ios :: binary);
+
+        if (!fin.is_open())
         {
-            node_pool.file_insert(size);
+            std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
+            fout.write(reinterpret_cast<char *>(&size), sizeof(size));
             Node initnode;
-            node_pool.insert(initnode, 0);
+            fout.write(reinterpret_cast<char *>(&initnode), sizeof(initnode));
+            fout.close();
         }
         else
-            node_pool.file_read(4, size);
+        {
+            fin.read(reinterpret_cast<char *>(&size), sizeof(size));
+            fin.close();
+        }
+
+        fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
     }
 
-    ~BPlusTree() 
+    ~BPlusTree()
     {
-        node_pool.file_write(4, size);
+        fio.seekg(0, std :: ios :: beg);
+        fio.write(reinterpret_cast<char*>(&size), sizeof(size));
+        fio.close();
     }
 
     void clear()
     {
         prex = -1; size = 0;
+        fio.close();
 
-        node_pool.clear();
-        node_pool.file_insert(size);
+        std :: fstream fout(file, std :: ios :: out | std :: ios :: binary);
+        fout.write(reinterpret_cast<char *>(&size), sizeof(size));
         Node initnode;
-        node_pool.insert(initnode, 0);
-    }
+        fout.write(reinterpret_cast<char *>(&initnode), sizeof(initnode));
+        fout.close();
 
-    // void check(const Node& now)
-    // {
-    //     for (int i = 0; i < now.size; i++)
-    //         printf("%llu ", now.key[i]);
-    //     puts("");
-    // }
+        fio.open(file, std :: ios :: in | std :: ios :: out | std :: ios :: binary);
+    }
 
     int get_size() const {return size;}
 
-    bool insert(const ull _key, int file_pos, bool unique = 0, int x = root_file_pos, Node* const faptr = nullptr, int dep = 0)
+    bool insert(const ull _key, int file_pos, bool unique = 0, int x = 4, Node* const faptr = nullptr)
     {
-        Node &now = node_pool.read(x, dep);
-        // printf("x:%d\n", x);
-        // check(now);
+        Node now; file_read(x, now);
 
         int pos = get_pos(now, _key, file_pos, unique);
         if (pos == -1) return 0;
@@ -128,14 +156,13 @@ public:
         else
         {
             pos -= (pos == now.size);
-            if (!insert(_key, file_pos, unique, now.child[pos], &now, dep + 1))
+            if (!insert(_key, file_pos, unique, now.child[pos], &now))
                 return 0;
         }
 
         if (faptr)
         {
             Node &fa = *faptr;
-
             for (int i = 0; i < fa.size; i++)
                 if (fa.child[i] == x)
                     fa.key[i] = now.key[now.size - 1], fa.mxpos[i] = now.mxpos[now.size - 1];
@@ -143,14 +170,13 @@ public:
 
         if (now.size > max_size)
         {
-            Node nxt; int nxt_pos = node_pool.get_nxt_pos();
+            Node nxt; int nxt_pos = get_file_end();
             nxt.isleaf = now.isleaf;
             nxt.size = now.size - block_size;
             nxt.nxtptr = now.nxtptr;
             nxt.preptr = x;
 
-            if (~nxt.nxtptr) 
-                node_pool.write(nxt.nxtptr, nxt_pos, dep, sizeof(int));
+            if (~nxt.nxtptr) file_write(nxt.nxtptr + sizeof(int), nxt_pos);
 
             for (int i = block_size; i < now.size; i++)
             {
@@ -159,16 +185,16 @@ public:
                 nxt.mxpos[i - block_size] = now.mxpos[i];
             }
 
-            node_pool.insert(nxt, dep);
+            file_write(nxt_pos, nxt);
 
             now.size = block_size;
-            now.nxtptr = nxt_pos; 
+            now.nxtptr = nxt_pos;
 
             if (!faptr)
             {
-                Node root; int root_pos = node_pool.get_nxt_pos();
-                x = root_pos; node_pool.write(nxt_pos, x, dep, sizeof(int));
-                root_pos = root_file_pos;
+                Node root; int root_pos = get_file_end();
+                x = root_pos; file_write(nxt_pos + sizeof(int), x);
+                root_pos = 4;
                 root.isleaf = 0;
                 root.size = 2;
                 root.child[0] = x; root.child[1] = nxt_pos;
@@ -177,9 +203,7 @@ public:
                 root.mxpos[0] = now.mxpos[now.size - 1];
                 root.mxpos[1] = nxt.mxpos[nxt.size - 1];
 
-                node_pool.insert(now, dep);
-                node_pool.write(root_pos, root, dep);
-                return 1;
+                file_write(root_pos, root);
             }
             else
             {
@@ -200,13 +224,13 @@ public:
             }
         }
 
-        node_pool.write(x, now, dep);
+        file_write(x, now);
         return 1;
     }
 
-    bool erase(const ull _key, int file_pos = -1, int x = root_file_pos, Node* const faptr = nullptr, int dep = 0)
+    bool erase(const ull _key, int file_pos = -1, int x = 4, Node* const faptr = nullptr)
     {
-        Node &now = node_pool.read(x, dep);
+        Node now; file_read(x, now);
 
         if (now.isleaf)
         {
@@ -247,7 +271,7 @@ public:
         else
         {
             int pos = get_pos(now, _key, file_pos);
-            if (pos == now.size || !erase(_key, file_pos, now.child[pos], &now, dep + 1)) return 0;
+            if (pos == now.size || !erase(_key, file_pos, now.child[pos], &now)) return 0;
         }
 
 
@@ -268,9 +292,10 @@ public:
 
         if (now.size < block_size)
         {
+            Node nxt, pre;
             if (~nxtptr)
             {
-                Node &nxt = node_pool.read(now.nxtptr, dep);
+                file_read(now.nxtptr, nxt);
 
                 if (nxt.size > block_size)
                 {
@@ -287,7 +312,7 @@ public:
                     }
                     nxt.size--;
 
-                    node_pool.write(now.nxtptr, nxt, dep);
+                    file_write(now.nxtptr, nxt);
                 }
                 else
                 {
@@ -318,16 +343,14 @@ public:
                     if (~nxt.nxtptr)
                     {
                         now.nxtptr = nxt.nxtptr;
-                        node_pool.write(nxt.nxtptr, x, dep, sizeof(int));
+                        file_write(nxt.nxtptr + sizeof(int), x);
                     }
                     else now.nxtptr = -1;
-
-                    node_pool.erase(nxtptr);
                 }
             }
             else if (~preptr)
             {
-                Node &pre = node_pool.read(now.preptr, dep);
+                file_read(now.preptr, pre);
 
                 if (pre.size > block_size)
                 {
@@ -343,7 +366,7 @@ public:
                     now.size++;
                     pre.size--;
 
-                    node_pool.write(now.preptr, pre, dep);
+                    file_write(now.preptr, pre);
 
                     Node &fa = *faptr;
                     for (int i = 0; i < fa.size; i++)
@@ -390,11 +413,9 @@ public:
                     if (~pre.preptr)
                     {
                         now.preptr = pre.preptr;
-                        node_pool.write(pre.preptr, x, dep, 0);
+                        file_write(pre.preptr, x);
                     }
                     else now.preptr = -1;
-
-                    node_pool.erase(preptr);
                 }
             }
         }
@@ -416,14 +437,14 @@ public:
                 x = -1, fa = now;
         }
 
-        if (~x) node_pool.write(x, now, dep);
+        if (~x) file_write(x, now);
 
         return 1;
     }
 
-    int query(const ull _key, int x = root_file_pos, int dep = 0)
+    int query(const ull _key, int x = 4)
     {
-        Node &now = node_pool.read(x, dep);
+        Node now; file_read(x, now);
 
         if (now.isleaf)
         {
@@ -437,7 +458,29 @@ public:
         }
 
         int pos = get_pos(now, _key, -1);
-        return (pos == now.size) ? -1 : query(_key, now.child[pos], dep + 1);
+        return (pos == now.size) ? -1 : query(_key, now.child[pos]);
+    }
+
+    int get_next()
+    {
+        if (prex == -1) return -1;
+
+        if (prec < presize - 1)
+        {
+            int ans;
+            prec++;
+            fio.seekg(prex + sizeof(int) * 4 + sizeof(int) * prec, std :: ios :: beg);
+            fio.read(reinterpret_cast<char *>(&ans), sizeof(ans));
+            return ans;
+        }
+        else
+        {
+            if (prenxt == -1) return -1;
+            Node now; fio.seekg(prenxt, std :: ios :: beg);
+            fio.read(reinterpret_cast<char *>(&now), sizeof(now));
+            prex = prenxt; prec = 0; presize = now.size; prenxt = now.nxtptr;
+            return now.child[0];
+        }
     }
 };
 

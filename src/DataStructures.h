@@ -6,7 +6,6 @@
 #define MAIN_CPP_MAPS_H
 
 #include "vector.hpp"
-#include "filemanip.h"
 #include "BPlusTree.hpp"
 #include <functional>
 #include "map.hpp"
@@ -22,62 +21,57 @@ struct HashString {
 };
 
 
-// Hash 将 Key 映射为一个 unsigned long long
-template<class Key, class Value, class Hash>
-class OuterUniqueUnorderMap 
-{
+template<class Key, class Value, class Hash = HashString>
+class OuterUniqueUnorderMap {
 private:
     char file[50];
     BPlusTree bpt;
-    std::FILE *fio;
+    std::fstream fio;
 
 public:
-    OuterUniqueUnorderMap(const char *_datafile) : bpt((std::string("bpt_") + _datafile).c_str()) 
-    {
+    OuterUniqueUnorderMap(const char *_datafile) : bpt((std::string("bpt_") + _datafile).c_str()) {
         strcpy(file, _datafile);
-
-        fio = std::fopen(file, "rb+");
-        if (fio == nullptr)
-            fio = std::fopen(file, "wb+");
+        std::fstream fin(_datafile, std::ios::in | std::ios::binary);
+        if (!fin.is_open()) {
+            std::fstream fout(_datafile, std::ios::out | std::ios::binary);
+            fout.close();
+        }
+        fin.close();
+        fio.open(_datafile, std::ios::in | std::ios::out | std::ios::binary);
     };
 
-    ~OuterUniqueUnorderMap() { std::fclose(fio); }
+    ~OuterUniqueUnorderMap() { fio.close(); }
 
-    bool insert(const std::pair<Key, Value> &pair) 
-    {
-        std::fseek(fio, 0, SEEK_END);
-        int pos = std::ftell(fio);
+    bool insert(const sjtu::pair<Key, Value> &pair) {
+        fio.seekg(0, std::ios::end);
+        int pos = fio.tellp();
 
         bool flag = bpt.insert(Hash()(pair.first), pos, 1);
         if (flag)
-            std::fwrite(std::addressof(pair.second), sizeof(pair.second), 1, fio);
+            fio.write(reinterpret_cast<const char *>(&(pair.second)), sizeof(pair.second));
 
         return flag;
     }
 
-    bool erase(const Key &key) 
-    {
+    bool erase(const Key &key) {
         return bpt.erase(Hash()(key));
     }
 
-    std::pair<int, bool> find(const Key &key) 
-    {
+    sjtu::pair<int, bool> find(const Key &key) {
         int f = bpt.query(Hash()(key));
         return {f, ~f ? true : false};
     }
 
-    Value getItem(int pos) 
-    {
+    Value getItem(int pos) {
         Value ans;
-        std::fseek(fio, pos, SEEK_SET);
-        std::fread(std::addressof(ans), sizeof(ans), 1, fio);
+        fio.seekg(pos, std::ios::beg);
+        fio.read(reinterpret_cast<char *>(&ans), sizeof(ans));
         return ans;
     }
 
-    void setItem(int pos, const Value &value) 
-    {
-        std::fseek(fio, pos, SEEK_SET);
-        std::fwrite(std::addressof(value), sizeof(value), 1, fio);
+    void setItem(int pos, const Value &value) {
+        fio.seekg(pos, std::ios::beg);
+        fio.write(reinterpret_cast<const char *>(&value), sizeof(value));
     }
 
     int get_size() const {
@@ -88,10 +82,13 @@ public:
         return bpt.get_size() == 0;
     }
 
-    void clear() 
-    {
-        std::fclose(fio);
-        fio = std::fopen(file, "wb+");
+    void clear() {
+        fio.close();
+
+        std::fstream fout(file, std::ios::out | std::ios::binary);
+        fout.close();
+
+        fio.open(file, std::ios::in | std::ios::out | std::ios::binary);
 
         bpt.clear();
     }
@@ -215,7 +212,7 @@ struct InnerList {
         }
     }
 
-    void writeToFile(std::fstream &file, Address address, int timesOfSpace = 1) {
+    void writeToFile(std::fstream &file, int address, int timesOfSpace = 1) {
         const int bitnum = sizeof(T) * size() * timesOfSpace;
         if (!bitnum) return;
         file.seekg(address);
@@ -331,14 +328,18 @@ struct InnerList {
 template<class Key, class Value,class Hash = HashString>
 class InnerOuterMultiUnorderMap {//复杂度分析：每次到threshold刷的时候就要访问一次bpt
 public:
-    FileName fileName;
+    std::string fileName;
     std::fstream file;
     static constexpr int THRESHOLD = 5;//memo 1 是debug用的数据，到时候再改回来
 
-    InnerOuterMultiUnorderMap(FileName fileName) : fileName(fileName),
+    InnerOuterMultiUnorderMap(std::string fileName) : fileName(fileName),
                                                    outmapper((std::string("inout_") + fileName).c_str()) {
-        fcreate(fileName);
         file.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
+        if(!file){
+            std::ofstream fout(fileName, std::ios::out | std::ios::binary);
+            fout.close();
+            file.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
+        }
     }
 
     ~InnerOuterMultiUnorderMap() {
@@ -373,7 +374,7 @@ public:
     }
 
 
-    void setAddressAndMaxFromOuterMapNumWhenFirstMeetKey(Key key) {
+    void setintAndMaxFromOuterMapNumWhenFirstMeetKey(Key key) {
         auto fd = outmapper.find(key);
         assert(fd.second);
         CoreData cd = outmapper.getItem(fd.first);
@@ -390,7 +391,7 @@ public:
         mapper.insert({key, Data(listptr, cd.address, cd.maxnum, cd.nownum)});
     };//caution login 的时候注意get一下
 
-    InnerList<Value> *readListFromFile(std::fstream &file, Address address, int &nownum) {
+    InnerList<Value> *readListFromFile(std::fstream &file, int address, int &nownum) {
         if (nownum == 0) {
             return new InnerList<Value>();
         }
@@ -436,13 +437,13 @@ public:
 //better 空间太大刷入外存 接口不变 这跟Queue的原理应当类似
 private:
     struct CoreData {
-        Address address = -2;
+        int address = -2;
         int maxnum = THRESHOLD;
         int nownum = 0;//指文件中的现有数据量
 
         CoreData() {};
 
-        CoreData(Address address, int maxnum, int nownum) : address(address), maxnum(maxnum), nownum(nownum) {}
+        CoreData(int address, int maxnum, int nownum) : address(address), maxnum(maxnum), nownum(nownum) {}
     };
 
     struct Data : CoreData {
@@ -450,7 +451,7 @@ private:
 
         Data() {}
 
-        Data(InnerList<Value> *listptr, Address address, int maxnum, int nownum) : listptr(listptr),
+        Data(InnerList<Value> *listptr, int address, int maxnum, int nownum) : listptr(listptr),
                                                                                    CoreData(address, maxnum, nownum) {}
     };
 
@@ -468,7 +469,7 @@ private:
         if (!iterpair.second) {
             outmapper.insert({key, CoreData()});
         }
-        setAddressAndMaxFromOuterMapNumWhenFirstMeetKey(key);
+        setintAndMaxFromOuterMapNumWhenFirstMeetKey(key);
         dataptr = mapper.find(key);
         return dataptr;
     }
@@ -499,17 +500,19 @@ private:
 
 template<class T>
 struct Queue : InnerList<T> {
-    FileName fileName;
+    std::string fileName;
     std::fstream file;
 
     using Node = typename InnerList<T>::Node;
     using Iterator = typename InnerList<T>::Iterator;
 
-    Queue(FileName fileName) : fileName(fileName) {//better 构建队列需不需要100w次文件读写？不过这显然不是瓶颈，但是可玩。
-        fcreate(fileName);
-
-        file.open(fileName, std::ios::in | std::ios::binary);
-        assert(file);
+    Queue(std::string fileName) : fileName(fileName) {//better 构建队列需不需要100w次文件读写？不过这显然不是瓶颈，但是可玩。
+        file.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
+        if(!file){
+            std::ofstream fout(fileName, std::ios::out | std::ios::binary);
+            fout.close();
+            file.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
+        }
         file.seekg(0, std::ios::end);
         file.tellg();
         const int bitnum = file.tellg();
