@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/Users/sakits/disk/SJTU/大一下学期/Data Structure/TicketSystem_Enoshima-Dentetsu/build",
+  "command": "/usr/bin/clang++   -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX11.1.sdk -mmacosx-version-min=10.15 -std=gnu++14 -o CMakeFiles/code.dir/src/main.cpp.o -c \"/Users/sakits/disk/SJTU/大一下学期/Data Structure/TicketSystem_Enoshima-Dentetsu/src/main.cpp\"",
+  "file": "/Users/sakits/disk/SJTU/大一下学期/Data Structure/TicketSystem_Enoshima-Dentetsu/src/main.cpp"
+}
+]
