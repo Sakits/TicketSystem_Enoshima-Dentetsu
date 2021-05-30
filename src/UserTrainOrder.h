@@ -435,7 +435,7 @@ struct ZipedTrain {
 };
 
 
-OuterUniqueUnorderMap<TrainID, ZipedTrain> existTrains("existTrains.dat");
+OuterUniqueUnorderMap<TrainID, Train> existTrains("existTrains.dat");
 
 typedef int TrainPtr;
 
