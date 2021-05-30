@@ -9,7 +9,7 @@
 #include <sstream>
 #include "logger.h"
 #include "vector.hpp"
-#include "UserTrain.h"
+#include "UserTrainOrder.h"
 #include <functional>
 
 void initialize();
@@ -308,10 +308,8 @@ void train::add_train(TrainID trainID, StationNum stationNum, SeatNum seatNum, S
 }
 
 auto getTrainPtr(TrainID trainID) {
-    LocalClock("biggettrain");
     auto curTrainPair = existTrains.find(trainID);
     if (!curTrainPair.second) Error("FINDING TRAIN DOES NOT EXIST");
-    ResetClock;
     return curTrainPair.first;
 }
 
@@ -398,12 +396,16 @@ struct OrderCalculator {
 
     void run(FunctionName functionName, TrainID trainID, const MonthDate& monthDate, StationName fromStation,
              StationName toStation) {
-//
+
         const bool giveTrainPtrInsteadOfTrainID = functionName == QUERY_TICKET || functionName == QUERY_TRANSFER_FROM ||
                                                   functionName == QUERY_TRANSFER_TO;
         if (!giveTrainPtrInsteadOfTrainID)trainPtr = getTrainPtr(trainID);
+        LocalClock("get train");
         Train train = existTrains.getItem(trainPtr);
+
+        LocalClock("end get train");
         if (giveTrainPtrInsteadOfTrainID) trainID = train.trainID;
+
         if (!train.is_released) Error("TRAIN HAS NOT BEEN RELEASED YET");
         const int fromint = train.findStation(fromStation), toint = train.findStation(toStation);
         const int leavingTime = train.leavingTimes[fromint], arrivingTime = train.arrivingTimes[toint];
@@ -420,10 +422,12 @@ struct OrderCalculator {
             else index = int(train.startSaleDate);
         const MonthDate trainStartDay(index);
         if (fromint == -1 || toint == -1)Error("CANNOT FIND STATION");
+
         TicketNum minTicket = 0x3f3f3f3f;
         if (fromint >= toint) Error("REVERSED PAIR");//等号，禁止原地tp
         for (int i = fromint; i < toint; ++i)
             minTicket = std::min(minTicket, train.ticketNums[index][i]);
+
         if (functionName != REFUND_TICKET && functionName != INFORM_QUEUE)
             order = Order(username, PENDING,
                           trainID, fromStation, toStation,
@@ -432,6 +436,7 @@ struct OrderCalculator {
                           train.prices[toint] - train.prices[fromint],
                           ticketNum
             );
+
 
         //构造order，及共同模式
 
@@ -445,7 +450,7 @@ struct OrderCalculator {
             return;
         }
         if (functionName == BUY_TICKET) {
-            LocalClock("run buy ticket");
+//            LocalClock("run buy ticket");
             AssureLogin(username);
             if(train.seatNum < ticketNum) Error("REALLY NO ENOUGH TICKET: MORE THAN SEATNUM");
             if (minTicket < ticketNum) {//no enough ticket
@@ -537,7 +542,6 @@ void train::query_ticket(StationName fromStation, StationName toStation, MonthDa
         }
     }
     vans.sort();
-    ResetClock;
     Return(vans.size());
     for (auto i : vans) Return(i.second);
 }
