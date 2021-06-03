@@ -214,7 +214,7 @@ public:
             if (~file_pos)
             {
                 for (int i = 0; i < now.size; i++)
-                    if (now.child[i] == file_pos)
+                    if (now.key[i] == _key && now.child[i] == file_pos)
                     {
                         pos = i;
                         break;
