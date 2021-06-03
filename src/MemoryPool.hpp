@@ -251,7 +251,7 @@ public:
 
     void clear()
     {
-        tot = 0; last = -1;
+        tot = 0; last = -1; front = rear = 0;
         memset(elast, 0, sizeof(elast));
 
         std::fclose(fio);
