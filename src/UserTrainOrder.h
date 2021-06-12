@@ -304,9 +304,9 @@ struct User {
 };//hack 坚持使用cStringType, rawuser 是否就不需要了？
 //better existUsers可以全部丢进内存吗？
 
-InnerUniqueUnorderMap<Username, Privilege> loginUsers;
+HashMap<Username, Privilege> loginUsers;
 //better 订单可以放在内存里，等logout或者exit时写回去吗？那样就要有通知补票的机制，怎么补呢？对于有保证login的操作，都可以如此做吗？
-OuterUniqueUnorderMap<Username, User> existUsers("existUsers.dat");
+DiskMap<Username, User> existUsers("existUsers.dat");
 
 
 typedef cStringType<21> TrainID;
@@ -435,7 +435,7 @@ struct ZipedTrain {
 };
 
 
-OuterUniqueUnorderMap<TrainID, ZipedTrain> existTrains("existTrains.dat");
+DiskMap<TrainID, ZipedTrain> existTrains("existTrains.dat");
 
 typedef int TrainPtr;
 
@@ -506,7 +506,7 @@ struct Order {
 
 int Order::timestamp = 0;
 
-InnerOuterMultiUnorderMap<StationName, TrainPtr> stmap("stationName_trainPtr.dat");
+CacheMap<StationName, TrainPtr> stmap("stationName_trainPtr.dat");
 
 void addPassedTrainPtr(StationName stationName, TrainPtr trainPtr) {
     stmap.insert({stationName, trainPtr});
@@ -560,9 +560,9 @@ MidRetType findMidStation(StationName fromStation, StationName toStation) {
 }
 
 
-InnerOuterMultiUnorderMap<Username, Order> userOrders("user_orders.dat");
+CacheMap<Username, Order> userOrders("user_orders.dat");
 
-//InnerOuterMultiUnorderMap<TrainID, Order> waitQueue("wait_queue.dat");
-Queue<Order> waitQueue("wait_queue.dat");
+//CacheMap<TrainID, Order> waitQueue("wait_queue.dat");
+CacheList<Order> waitQueue("wait_queue.dat");
 
 #endif //TRAINTICKET_BASICHEADER_H

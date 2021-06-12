@@ -22,60 +22,56 @@ struct HashString {
 
 
 template<class Key, class Value, class Hash = HashString>
-class OuterUniqueUnorderMap 
-{
+class DiskMap {
 private:
     char file[50];
     BPlusTree bpt;
-    std::FILE *fio;
+    std::fstream fio;
 
 public:
-    OuterUniqueUnorderMap(const char *_datafile) : bpt((std::string("bpt_") + _datafile).c_str()) 
-    {
+    DiskMap(const char *_datafile) : bpt((std::string("bpt_") + _datafile).c_str()) {
         strcpy(file, _datafile);
-
-        fio = std::fopen(file, "rb+");
-        if (fio == nullptr)
-            fio = std::fopen(file, "wb+");
+        std::fstream fin(_datafile, std::ios::in | std::ios::binary);
+        if (!fin.is_open()) {
+            std::fstream fout(_datafile, std::ios::out | std::ios::binary);
+            fout.close();
+        }
+        fin.close();
+        fio.open(_datafile, std::ios::in | std::ios::out | std::ios::binary);
     };
 
-    ~OuterUniqueUnorderMap() { std::fclose(fio); }
+    ~DiskMap() { fio.close(); }
 
-    bool insert(const std::pair<Key, Value> &pair) 
-    {
-        std::fseek(fio, 0, SEEK_END);
-        int pos = std::ftell(fio);
+    bool insert(const sjtu::pair<Key, Value> &pair) {
+        fio.seekg(0, std::ios::end);
+        int pos = fio.tellp();
 
         bool flag = bpt.insert(Hash()(pair.first), pos, 1);
         if (flag)
-            std::fwrite(std::addressof(pair.second), sizeof(pair.second), 1, fio);
+            fio.write(reinterpret_cast<const char *>(&(pair.second)), sizeof(pair.second));
 
         return flag;
     }
 
-    bool erase(const Key &key) 
-    {
+    bool erase(const Key &key) {
         return bpt.erase(Hash()(key));
     }
 
-    std::pair<int, bool> find(const Key &key) 
-    {
+    sjtu::pair<int, bool> find(const Key &key) {
         int f = bpt.query(Hash()(key));
         return {f, ~f ? true : false};
     }
 
-    Value getItem(int pos) 
-    {
+    Value getItem(int pos) {
         Value ans;
-        std::fseek(fio, pos, SEEK_SET);
-        std::fread(std::addressof(ans), sizeof(ans), 1, fio);
+        fio.seekg(pos, std::ios::beg);
+        fio.read(reinterpret_cast<char *>(&ans), sizeof(ans));
         return ans;
     }
 
-    void setItem(int pos, const Value &value) 
-    {
-        std::fseek(fio, pos, SEEK_SET);
-        std::fwrite(std::addressof(value), sizeof(value), 1, fio);
+    void setItem(int pos, const Value &value) {
+        fio.seekg(pos, std::ios::beg);
+        fio.write(reinterpret_cast<const char *>(&value), sizeof(value));
     }
 
     int get_size() const {
@@ -86,19 +82,22 @@ public:
         return bpt.get_size() == 0;
     }
 
-    void clear() 
-    {
-        std::fclose(fio);
-        fio = std::fopen(file, "wb+");
+    void clear() {
+        fio.close();
+
+        std::fstream fout(file, std::ios::out | std::ios::binary);
+        fout.close();
+
+        fio.open(file, std::ios::in | std::ios::out | std::ios::binary);
 
         bpt.clear();
     }
 };
 
 //这个参数对内存有影响。
-template<class Key, class Value, class Hash = HashString, int MAXN = 50000>
+template<class Key, class Value, class Hash = HashString, int MAXN = 25000>
 //Hash是一个模板类名，它实例化后的一个对象例为auto h = Hash<string>(), 这个对象重载了括号，比如可以h(1),然后返回一个size_t
-class InnerUniqueUnorderMap {
+class HashMap {
 private:
     using ull = unsigned long long;
     static constexpr int MOD = (MAXN <= 10000) ? 100003 : (MAXN <= 100000) ? 1000003 : (MAXN <= 300000) ? 233347
@@ -113,12 +112,12 @@ private:
 public:
 
     // MAXN 表示 insert 次数上限，_mod 表示哈希模数，最好是质数
-    InnerUniqueUnorderMap() {
+    HashMap() {
         last = new int[MOD];
         e = new edge[MAXN + 1];
     }
 
-    ~InnerUniqueUnorderMap() {
+    ~HashMap() {
         delete last;
         delete e;
     }
@@ -180,7 +179,7 @@ public:
 
 
 template<class T>
-struct InnerList {
+struct List {
     struct Node {
         T t;
         Node *n = nullptr;
@@ -197,15 +196,15 @@ struct InnerList {
 
     int size() const{ return num; }
 
-    InnerList() {
+    List() {
         rear = root = new Node();
     }
 
-    InnerList(const InnerList &) = delete;
+    List(const List &) = delete;
 
-    InnerList &operator=(const InnerList &) = delete;
+    List &operator=(const List &) = delete;
 
-    virtual ~InnerList() {
+    virtual ~List() {
         while (root) {
             Node *nextroot = root->n;
             delete root;
@@ -230,7 +229,7 @@ struct InnerList {
     }
 
 
-    friend InnerList *mergeList(InnerList *dist, InnerList *src) {
+    friend List *mergeList(List *dist, List *src) {
         auto distlast = dist->root;
         while (distlast->n) distlast = distlast->n;//better 随便写个O(100),估计没事
         auto srcroot = src->root;
@@ -327,14 +326,14 @@ struct InnerList {
 };
 
 template<class Key, class Value,class Hash = HashString>
-class InnerOuterMultiUnorderMap {//复杂度分析：每次到threshold刷的时候就要访问一次bpt
+class CacheMap {//复杂度分析：每次到threshold刷的时候就要访问一次bpt
 public:
     std::string fileName;
     std::fstream file;
     static constexpr int THRESHOLD = 5;//memo 1 是debug用的数据，到时候再改回来
 
-    InnerOuterMultiUnorderMap(std::string fileName) : fileName(fileName),
-                                                   outmapper((std::string("inout_") + fileName).c_str()) {
+    CacheMap(std::string fileName) : fileName(fileName),
+                                     outmapper((std::string("inout_") + fileName).c_str()) {
         file.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
         if(!file){
             std::ofstream fout(fileName, std::ios::out | std::ios::binary);
@@ -343,7 +342,7 @@ public:
         }
     }
 
-    ~InnerOuterMultiUnorderMap() {
+    ~CacheMap() {
         //better 已偷懒：在一次文件打开后，login的人logout以后也不会再刷回去，只有结束的时候才刷。这会导致小幅的多余内存浪费。
         //...对内部所有人进行刷数据
         for (auto it = keySetter.begin(); it != keySetter.end(); ++it) {
@@ -367,7 +366,7 @@ public:
     typedef Value *Iterator;
 
     Iterator find(Key key, int n) {//找到第n新插入的东西。
-        InnerList<Value> *valueList = find(key);
+        List<Value> *valueList = find(key);
         if (n < 1 || n > valueList->size()) return nullptr;
         auto it = valueList->begin();
         while (--n) ++it;
@@ -380,7 +379,7 @@ public:
         assert(fd.second);
         CoreData cd = outmapper.getItem(fd.first);
         //这两个assert auto 都可以被只压成一行
-        InnerList<Value> *listptr = new InnerList<Value>();
+        List<Value> *listptr = new List<Value>();
         listSetter.push_front(listptr);
         keySetter.push_front(key);
         if (cd.address == -2) {
@@ -392,15 +391,15 @@ public:
         mapper.insert({key, Data(listptr, cd.address, cd.maxnum, cd.nownum)});
     };//caution login 的时候注意get一下
 
-    InnerList<Value> *readListFromFile(std::fstream &file, int address, int &nownum) {
+    List<Value> *readListFromFile(std::fstream &file, int address, int &nownum) {
         if (nownum == 0) {
-            return new InnerList<Value>();
+            return new List<Value>();
         }
         file.seekg(address);
         const int bitnum = sizeof(Value) * nownum;
         char *fixzero = new char[bitnum]{0};
         file.read(fixzero, bitnum);
-        InnerList<Value> *listptr = new InnerList<Value>();
+        List<Value> *listptr = new List<Value>();
         for (int i = nownum - 1; ~i; --i) {
             Value t;
             memcpy(reinterpret_cast<char *>(&t), fixzero + i * sizeof(Value), sizeof(Value));
@@ -415,10 +414,10 @@ public:
     }
 
 
-    InnerList<Value> *find(Key key) {//caution find 出来的链表会即使在内存中栈空间清除吗？ 不然写了这个也白白地没有用。
+    List<Value> *find(Key key) {//caution find 出来的链表会即使在内存中栈空间清除吗？ 不然写了这个也白白地没有用。
         //better 可以取消门槛机制，每次find直接刷掉 但是发现return出来了不知道什么时候才用完，故不行。
         Data * dataptr = safeGetDataFromInnerMapper(key);
-        InnerList<Value> *listptr = readListFromFile(file, dataptr->address, dataptr->nownum);
+        List<Value> *listptr = readListFromFile(file, dataptr->address, dataptr->nownum);
         mergeList(dataptr->listptr, listptr);
         return dataptr->listptr;
     };
@@ -448,18 +447,18 @@ private:
     };
 
     struct Data : CoreData {
-        InnerList<Value> *listptr = nullptr;
+        List<Value> *listptr = nullptr;
 
         Data() {}
 
-        Data(InnerList<Value> *listptr, int address, int maxnum, int nownum) : listptr(listptr),
-                                                                                   CoreData(address, maxnum, nownum) {}
+        Data(List<Value> *listptr, int address, int maxnum, int nownum) : listptr(listptr),
+                                                                          CoreData(address, maxnum, nownum) {}
     };
 
-    InnerUniqueUnorderMap<Key, Data, Hash> mapper;
-    OuterUniqueUnorderMap<Key, CoreData, Hash> outmapper;
-    InnerList<InnerList<Value> *> listSetter;
-    InnerList<Key> keySetter;
+    HashMap<Key, Data, Hash> mapper;
+    DiskMap<Key, CoreData, Hash> outmapper;
+    List<List<Value> *> listSetter;
+    List<Key> keySetter;
 
 
     Data *safeGetDataFromInnerMapper(Key key) {
@@ -476,7 +475,7 @@ private:
     }
 
     void putToFileWithoutFear(Data *&dataptr) {
-        InnerList<Value> *&valueList = dataptr->listptr;
+        List<Value> *&valueList = dataptr->listptr;
         mergeList(valueList, readListFromFile(file, dataptr->address, dataptr->nownum));
         dataptr->nownum = valueList->size();
         if (dataptr->maxnum >= valueList->size()) {//刷数据也在find里刷了。之后注意一下。
@@ -500,14 +499,14 @@ private:
 
 
 template<class T>
-struct Queue : InnerList<T> {
+struct CacheList : List<T> {
     std::string fileName;
     std::fstream file;
 
-    using Node = typename InnerList<T>::Node;
-    using Iterator = typename InnerList<T>::Iterator;
+    using Node = typename List<T>::Node;
+    using Iterator = typename List<T>::Iterator;
 
-    Queue(std::string fileName) : fileName(fileName) {//better 构建队列需不需要100w次文件读写？不过这显然不是瓶颈，但是可玩。
+    CacheList(std::string fileName) : fileName(fileName) {//better 构建队列需不需要100w次文件读写？不过这显然不是瓶颈，但是可玩。
         file.open(fileName, std::ios::in | std::ios::out | std::ios::binary);
         if(!file){
             std::ofstream fout(fileName, std::ios::out | std::ios::binary);
@@ -534,11 +533,11 @@ struct Queue : InnerList<T> {
         file.close();
     }
 
-    virtual ~Queue() override {
+    virtual ~CacheList() override {
         file.open(fileName, std::ios::out);
         file.close();
         file.open(fileName, std::ios::in |std::ios::out | std::ios::binary);
-        InnerList<T>::writeToFile(file, 0);
+        List<T>::writeToFile(file, 0);
         file.close();
     }
 };
